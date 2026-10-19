@@ -10,7 +10,7 @@ const escape = (value) =>
 export function mailMarkup(settings = {}) {
   const c = { ...mailDefaults, ...settings };
   if (!c.enabled) return "";
-  return `<span class="chapter">A letter, in return</span><h2 class="section-title">${escape(c.title)}</h2><p class="section-subtitle">${escape(c.subtitle)}</p><div class="reply-workspace"><form class="reply-paper" id="visitor-letter"><p class="reply-greeting">${escape(c.greeting)}</p><label class="sr-only" for="reply-name">Your name (optional)</label><input id="reply-name" name="name" maxlength="80" placeholder="Your name, if you like…" autocomplete="nickname"><label class="sr-only" for="reply-body">Your letter</label><textarea id="reply-body" name="body" required maxlength="5000" rows="9" placeholder="There is something I wanted to tell you…"></textarea><label class="mail-honeypot" aria-hidden="true">Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label><div class="reply-paper-footer"><span>A little piece of your heart.</span><button class="primary" type="submit">${escape(c.button)} <span aria-hidden="true">↗</span></button></div></form><div class="mail-send-scene" aria-hidden="true"><div class="send-envelope"><i></i><span>with love</span></div><svg class="send-plane" viewBox="0 0 140 100"><path d="M5 45L135 5 80 94 61 60Z" fill="#f4d5dd" stroke="#a94361" stroke-width="2"/><path d="M5 45L61 60 135 5M61 60L51 88 73 75" fill="#fffaf4" stroke="#a94361" stroke-width="2"/></svg><span class="flight-trail"></span></div><div class="reply-sent" hidden><span aria-hidden="true">❧</span><h3>Sealed with love.</h3><p>${escape(c.success)}</p><button class="text-button" id="write-again">Write another letter</button></div></div><p class="mail-status" id="mail-status" role="status"></p><p class="reply-return-note">Replies will find you here, on this same browser.</p><button class="text-button" id="mail-history">My letters & replies</button>`;
+  return `<span class="chapter">A letter, in return</span><h2 class="section-title">${escape(c.title)}</h2><p class="section-subtitle">${escape(c.subtitle)}</p><div class="reply-workspace"><form class="reply-paper" id="visitor-letter"><p class="reply-greeting">${escape(c.greeting)}</p><label class="sr-only" for="reply-name">Your name (optional)</label><input id="reply-name" name="name" maxlength="80" placeholder="Your name, if you like…" autocomplete="nickname"><label class="sr-only" for="reply-body">Your letter</label><textarea id="reply-body" name="body" required maxlength="5000" rows="9" placeholder="There is something I wanted to tell you…"></textarea><label class="mail-honeypot" aria-hidden="true">Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label><div class="reply-paper-footer"><span>A little piece of your heart.</span><button class="primary" type="submit">${escape(c.button)} <span aria-hidden="true">↗</span></button></div></form><div class="mail-send-scene" aria-hidden="true"><div class="send-envelope"><i></i><span>with love</span></div><svg class="send-plane" viewBox="0 0 140 100"><path d="M5 45L135 5 80 94 61 60Z" fill="#f4d5dd" stroke="#a94361" stroke-width="2"/><path d="M5 45L61 60 135 5M61 60L51 88 73 75" fill="#fffaf4" stroke="#a94361" stroke-width="2"/></svg><span class="flight-trail"></span></div><div class="reply-sent" hidden><span aria-hidden="true">❧</span><h3>Sealed with love.</h3><p>${escape(c.success)}</p><button class="text-button" id="write-again">Write another letter</button></div></div><p class="mail-status" id="mail-status" role="status"></p><p class="reply-return-note">Replies will find you here, on this same browser.</p><div class="mail-history-actions" role="group" aria-label="Your correspondence"><button class="text-button" id="mail-sent" type="button" aria-haspopup="dialog" aria-controls="mail-dialog">My letters</button><button class="text-button" id="mail-replies" type="button" aria-haspopup="dialog" aria-controls="mail-dialog">Replies</button></div>`;
 }
 export function mountMail(root, settings = {}, { preview = false } = {}) {
   const c = { ...mailDefaults, ...settings };
@@ -43,6 +43,7 @@ export function mountMail(root, settings = {}, { preview = false } = {}) {
   root.append(badge);
   const dialog = document.createElement("dialog");
   dialog.className = "return-letter-dialog";
+  dialog.id = "mail-dialog";
   dialog.setAttribute("aria-label", "Your returning love letters");
   root.append(dialog);
   const reduced = () =>
@@ -94,12 +95,15 @@ export function mountMail(root, settings = {}, { preview = false } = {}) {
       openLetters(true);
     }
   }
-  function openLetters(incoming = false) {
-    const snapshot = [...messages],
+  function openLetters(incoming = false, direction = "admin") {
+    const replies = direction === "admin";
+    const snapshot = messages.filter((m) => m.direction === direction),
       newIds = snapshot
         .filter((m) => m.direction === "admin" && !m.read_at)
         .map((m) => m.id);
-    dialog.innerHTML = `<button class="return-close" aria-label="Close letter">×</button><div class="return-welcome ${incoming && !reduced() ? "arriving" : ""}"><span class="chapter">A little love, coming home</span><h2>${escape(c.returnTitle)}</h2><button class="return-envelope" aria-label="Open your returning letter"><span class="return-flap"></span><span class="return-seal">L</span></button><p>Tap the seal to unfold your letter.</p></div><div class="return-reading" hidden><span class="tiny-flower" aria-hidden="true">❧</span>${snapshot.length ? snapshot.map((m) => `<article class="returned-note ${m.direction === "visitor" ? "your-note" : ""}"><small>${m.direction === "admin" ? "A LETTER FOR YOU" : "YOUR LETTER"} · ${escape(new Date(m.created_at).toLocaleDateString())}</small><h3>${escape(m.name)}</h3><p>${escape(m.body)}</p></article>`).join("") : '<p class="no-return-yet">Your letter box is waiting for its first little note.</p>'}</div>`;
+    const unfold = replies && snapshot.length > 0;
+    dialog.setAttribute("aria-label", replies ? "Replies" : "My letters");
+    dialog.innerHTML = `<button class="return-close" aria-label="Close letter">×</button><div class="return-welcome ${incoming && !reduced() ? "arriving" : ""}" ${unfold ? "" : "hidden"}><span class="chapter">A little love, coming home</span><h2>${escape(c.returnTitle)}</h2><button class="return-envelope" aria-label="Open your returning letter"><span class="return-flap"></span><span class="return-seal">L</span></button><p>Tap the seal to unfold your letter.</p></div><div class="return-reading" ${unfold ? "hidden" : ""}><span class="tiny-flower" aria-hidden="true">❧</span><h2 class="mail-folder-title">${replies ? "Replies" : "My letters"}</h2>${snapshot.length ? snapshot.map((m) => `<article class="returned-note ${m.direction === "visitor" ? "your-note" : ""}"><small>${m.direction === "admin" ? "A LETTER FOR YOU" : "YOUR LETTER"} · ${escape(new Date(m.created_at).toLocaleDateString())}</small><h3>${escape(m.name)}</h3><p>${escape(m.body)}</p></article>`).join("") : `<p class="no-return-yet">${replies ? "No replies yet. A little love will find you here." : "Your sent letters will be kept here."}</p>`}</div>`;
     if (!dialog.open) dialog.showModal();
     const reading = dialog.querySelector(".return-reading");
     dialog
@@ -141,14 +145,19 @@ export function mountMail(root, settings = {}, { preview = false } = {}) {
   };
   dialog.addEventListener("click", outside);
   badge.addEventListener("click", () => openLetters(true));
-  root.querySelector("#mail-history")?.addEventListener("click", async () => {
-    try {
-      if (!preview) await refresh(false);
-      openLetters(false);
-    } catch (error) {
-      if (status) status.textContent = error.message;
-    }
-  });
+  for (const [selector, direction] of [
+    ["#mail-sent", "visitor"],
+    ["#mail-replies", "admin"],
+  ]) {
+    root.querySelector(selector)?.addEventListener("click", async () => {
+      try {
+        if (!preview) await refresh(false);
+        if (!dead) openLetters(false, direction);
+      } catch (error) {
+        if (status) status.textContent = error.message;
+      }
+    });
+  }
   const again = root.querySelector("#write-again");
   again?.addEventListener("click", () => {
     workspace.querySelector(".reply-sent").hidden = true;

@@ -2028,3 +2028,20 @@ html {
     transition: none;
   }
 }
+
+.mail-history-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 20px auto;
+}
+.mail-history-actions .text-button {
+  padding: 10px 6px;
+}
+.mail-folder-title {
+  font: italic 34px var(--heading);
+  color: var(--accent);
+  margin: 15px 0 25px;
+}

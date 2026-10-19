@@ -118,3 +118,89 @@ test("full-motion delivery triggers paper folding, envelope sealing, flight, and
     false,
   );
 });
+test("sent letters and received replies open separate views without marking replies read from sent history", async (t) => {
+  const received = crypto.randomUUID();
+  const { root, requests } = fixture(t, {
+    messages: [
+      {
+        id: crypto.randomUUID(),
+        direction: "visitor",
+        name: "Me",
+        body: "Only in my sent letters",
+        created_at: new Date().toISOString(),
+        read_at: null,
+      },
+      {
+        id: received,
+        direction: "admin",
+        name: "You",
+        body: "Only in my replies",
+        created_at: new Date().toISOString(),
+        read_at: null,
+      },
+    ],
+  });
+  await tick();
+  root.querySelector(".return-close").click();
+  assert.equal(root.querySelector("#mail-sent").textContent, "My letters");
+  assert.equal(root.querySelector("#mail-replies").textContent, "Replies");
+  root.querySelector("#mail-sent").click();
+  await tick();
+  assert.equal(
+    root.querySelector("dialog").getAttribute("aria-label"),
+    "My letters",
+  );
+  assert.equal(root.querySelector(".return-reading").hidden, false);
+  assert.equal(root.querySelector(".return-welcome").hidden, true);
+  assert.equal(root.querySelectorAll(".returned-note").length, 1);
+  assert.match(
+    root.querySelector(".return-reading").textContent,
+    /Only in my sent letters/,
+  );
+  assert.doesNotMatch(
+    root.querySelector(".return-reading").textContent,
+    /Only in my replies/,
+  );
+  assert.equal(requests.filter((r) => r.path === "/api/mail/read").length, 0);
+  root.querySelector(".return-close").click();
+  root.querySelector("#mail-replies").click();
+  await tick();
+  assert.equal(
+    root.querySelector("dialog").getAttribute("aria-label"),
+    "Replies",
+  );
+  assert.equal(root.querySelector(".return-reading").hidden, true);
+  assert.equal(root.querySelectorAll(".returned-note").length, 1);
+  root.querySelector(".return-envelope").click();
+  await tick();
+  assert.match(
+    root.querySelector(".return-reading").textContent,
+    /Only in my replies/,
+  );
+  assert.doesNotMatch(
+    root.querySelector(".return-reading").textContent,
+    /Only in my sent letters/,
+  );
+  assert.deepEqual(
+    JSON.parse(requests.find((r) => r.path === "/api/mail/read").body).ids,
+    [received],
+  );
+});
+test("separate letter folders show relevant empty states", async (t) => {
+  const { root } = fixture(t, { preview: true });
+  root.querySelector("#mail-sent").click();
+  await tick();
+  assert.match(
+    root.querySelector(".return-reading").textContent,
+    /Your sent letters will be kept here/,
+  );
+  assert.equal(root.querySelector(".return-reading").hidden, false);
+  root.querySelector(".return-close").click();
+  root.querySelector("#mail-replies").click();
+  await tick();
+  assert.match(
+    root.querySelector(".return-reading").textContent,
+    /No replies yet/,
+  );
+  assert.equal(root.querySelector(".return-welcome").hidden, true);
+});
