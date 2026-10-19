@@ -1,3 +1,4 @@
+import { versionClientAssets } from "./client-assets.mjs";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 const read = (p) => readFile(p, "utf8");
 await mkdir("dist", { recursive: true });
@@ -65,9 +66,10 @@ for (const surface of ["public", "editor"]) {
   const html =
     surface === "public" ? pub : await read("apps/editor/index.html");
   const preview = pub.replace('src="/app.js"', 'src="/preview.js"');
+  const client = versionClientAssets(assets, html, preview, factory);
   await writeFile(
     `dist/${surface}.js`,
-    `${factory}\nexport default createFrontend(${JSON.stringify(surface)},${JSON.stringify(assets)},${JSON.stringify(html)},${JSON.stringify(preview)});\n`,
+    `${factory}\nexport default createFrontend(${JSON.stringify(surface)},${JSON.stringify(client.assets)},${JSON.stringify(client.html)},${JSON.stringify(client.previewHtml)},${JSON.stringify(client.revision)});\n`,
   );
 }
 console.log("Built API, public site, and editor.");

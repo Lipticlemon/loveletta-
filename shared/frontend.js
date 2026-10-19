@@ -14,13 +14,20 @@ const esc = (v) =>
         c
       ],
   );
-export function createFrontend(surface, assets, html, previewHtml = "") {
+export function createFrontend(
+  surface,
+  assets,
+  html,
+  previewHtml = "",
+  release = "",
+) {
   return {
     async fetch(request, env) {
       try {
         const url = new URL(request.url),
           path = url.pathname,
           headers = new Headers(securityHeaders);
+        if (release) headers.set("X-Loveletta-Release", release);
         if (surface === "editor")
           headers.set("X-Robots-Tag", "noindex, nofollow");
         if (request.method === "OPTIONS")
@@ -138,7 +145,12 @@ export function createFrontend(surface, assets, html, previewHtml = "") {
         if (assets[path]) {
           const { content, type } = assets[path];
           headers.set("Content-Type", type);
-          headers.set("Cache-Control", "public, max-age=300");
+          headers.set(
+            "Cache-Control",
+            /\.(?:js|css)$/.test(path)
+              ? "no-cache, max-age=0, must-revalidate"
+              : "public, max-age=300",
+          );
           let output = content;
           if (path === "/floral.svg")
             output = tintFloral(

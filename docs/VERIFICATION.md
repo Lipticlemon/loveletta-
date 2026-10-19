@@ -65,3 +65,11 @@ A real exchange was executed through the deployed public and private URLs: a fre
 Migration 0002 creates correspondence tables and indexes in D1. Existing draft and published configurations were extended independently, retaining their original content and unpublished differences. The API, public Worker, and editor Worker were deployed independently. The temporary verification conversations and administrator session were removed after checking. Media remains in the existing private R2 bucket. No user password was reset or setup invitation used.
 
 These are actual DOM/controller, database, and deployed HTTP checks. The browser/device visual-verification limit above still applies; animation appearance and audio playback have not been observed on real devices in this environment.
+
+## Desktop stale-button cache fix — 19 October 2026
+
+The reported desktop screenshot still showed the combined button. The current deployed mail module already contained the separated controls, while unversioned JavaScript responses allowed a five-minute browser cache. The build now versions HTML entry points, stylesheets, and nested module imports together. Script/style responses require revalidation; HTML remains uncached.
+
+Thirty targeted tests passed across asset versioning, cache headers, stationery behavior, separated sent/reply views, rendering, backend authorization, and private message delivery. Syntax checks passed for 27 JavaScript modules. New regression coverage verifies that changing only a nested module changes the entry-point revision and that both frontend surfaces require revalidation for desktop/mobile user agents and old query strings.
+
+After deployment, HTTP requests with Windows desktop and iPhone user agents received the same public release (`b6eecbf8e7ef0c5d`). Seventeen deployed scripts/styles across the public site and studio passed checks for versioned imports, matching release headers, and revalidation. Both served mail modules contained separate sent/reply buttons and omitted the combined label. This validates the served release and DOM behavior; it does not claim direct observation of the user's desktop browser. An existing open page needs one reload. Cookies and correspondence were retained.
