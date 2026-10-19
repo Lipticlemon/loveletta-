@@ -275,13 +275,52 @@ export default {
           .bind(id)
           .first();
         if (!m) fail("Media not found.", 404);
-        let bytes;
         if (m.storage === "r2") {
           if (!env.MEDIA) fail("Media storage is unavailable.", 503);
-          const object = await env.MEDIA.get(id);
+          let start = 0,
+            end = m.size - 1,
+            status = 200;
+          const range = req.headers.get("range");
+          if (range) {
+            const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+            if (!match || (!match[1] && !match[2]))
+              return new Response(null, {
+                status: 416,
+                headers: { "Content-Range": `bytes */${m.size}` },
+              });
+            start = match[1]
+              ? Number(match[1])
+              : Math.max(0, m.size - Number(match[2]));
+            if (match[1] && match[2]) end = Math.min(end, Number(match[2]));
+            if (start > end || start >= m.size)
+              return new Response(null, {
+                status: 416,
+                headers: { "Content-Range": `bytes */${m.size}` },
+              });
+            status = 206;
+          }
+          const headers = {
+            "Content-Type": m.mime,
+            "Content-Length": String(end - start + 1),
+            "Cache-Control": "private, no-store",
+            "Accept-Ranges": "bytes",
+            "Content-Disposition": "inline",
+            "X-Content-Type-Options": "nosniff",
+          };
+          if (status === 206)
+            headers["Content-Range"] = `bytes ${start}-${end}/${m.size}`;
+          if (method === "HEAD") return new Response(null, { status, headers });
+          const object = await env.MEDIA.get(
+            id,
+            status === 206
+              ? { range: { offset: start, length: end - start + 1 } }
+              : undefined,
+          );
           if (!object) fail("Media not found.", 404);
-          bytes = new Uint8Array(await object.arrayBuffer());
-        } else {
+          return new Response(object.body, { status, headers });
+        }
+        let bytes;
+        {
           const rows = await env.DB.prepare(
             "SELECT content FROM media_chunks WHERE media_id=? ORDER BY part",
           )
@@ -380,6 +419,17 @@ export default {
           fail(
             "Choose a file for each gallery memory and song before publishing.",
           );
+        if (draft.theme.video?.enabled) {
+          if (!draft.theme.video.src)
+            fail("Choose a background video before publishing.");
+          const selected = await env.DB.prepare(
+            "SELECT mime FROM media WHERE id=?",
+          )
+            .bind(draft.theme.video.src.slice(7))
+            .first();
+          if (!selected?.mime.startsWith("video/"))
+            fail("Choose a video file for the background.");
+        }
         const refs = [...referencedMedia(draft)];
         for (const ref of refs) {
           if (
@@ -501,9 +551,14 @@ export default {
             "audio/ogg",
             "audio/wav",
             "audio/x-wav",
+            "video/mp4",
+            "video/webm",
           ].includes(mime)
         )
-          fail("Use JPEG, PNG, WebP, GIF, MP3, M4A, OGG, or WAV.", 415);
+          fail(
+            "Use JPEG, PNG, WebP, GIF, MP3, M4A, OGG, WAV, MP4, or WebM.",
+            415,
+          );
         const max = env.MEDIA ? 20 * 1024 * 1024 : 8 * 1024 * 1024,
           bytes = await body(req, max);
         if (!bytes.length) fail("Empty file.");
@@ -523,8 +578,12 @@ export default {
                   ? new TextDecoder()
                       .decode(bytes.slice(0, 6))
                       .startsWith("GIF8")
-                  : true;
-        if (!valid) fail("File content does not match its image type.", 415);
+                  : mime === "video/mp4"
+                    ? new TextDecoder().decode(bytes.slice(4, 8)) === "ftyp"
+                    : mime === "video/webm"
+                      ? signature.slice(0, 4).join(",") === "26,69,223,163"
+                      : true;
+        if (!valid) fail("File content does not match its media type.", 415);
         const total = await env.DB.prepare(
           "SELECT COALESCE(SUM(size),0) AS total FROM media",
         ).first();

@@ -1,3 +1,20 @@
+export const videoDefaults = {
+  enabled: false,
+  src: "",
+  poster: "",
+  autoplay: true,
+  loop: true,
+  start: 0,
+  speed: 0.8,
+  opacity: 0.85,
+  overlay: 0.64,
+  blur: 0,
+  fit: "cover",
+  position: "center",
+  mobile: true,
+  reduceMotion: true,
+  paperOpacity: 0.85,
+};
 const tags = new Set([
   "p",
   "br",
@@ -38,6 +55,8 @@ export function validateConfig(input) {
   if (serialized.length > 240000)
     throw new Error("Content is too large. Keep backups below 240 KB.");
   const c = JSON.parse(serialized);
+  if (c.theme && typeof c.theme === "object")
+    c.theme.video = { ...videoDefaults, ...c.theme.video };
   for (const key of [
     "welcome",
     "theme",
@@ -146,6 +165,29 @@ export function validateConfig(input) {
   number(c.gallery, "interval", 2, 60);
   number(c.music, "volume", 0, 1);
   number(c.music, "start", 0, 86400);
+  const video = c.theme.video;
+  for (const [key, min, max] of [
+    ["start", 0, 86400],
+    ["speed", 0.25, 2],
+    ["opacity", 0, 1],
+    ["overlay", 0, 1],
+    ["blur", 0, 20],
+    ["paperOpacity", 0, 1],
+  ])
+    number(video, key, min, max);
+  for (const key of ["enabled", "autoplay", "loop", "mobile", "reduceMotion"])
+    if (typeof video[key] !== "boolean")
+      throw new Error("Invalid video option.");
+  if (
+    !["cover", "contain"].includes(video.fit) ||
+    !["center", "top", "bottom", "left", "right"].includes(video.position)
+  )
+    throw new Error("Invalid video framing.");
+  if (
+    c.theme.transparent !== undefined &&
+    typeof c.theme.transparent !== "boolean"
+  )
+    throw new Error("Invalid transparency option.");
   for (const s of c.sections) {
     number(s, "spacing", 20, 180);
     if (s.background && !/^#[\da-f]{6}$/i.test(s.background))
@@ -154,6 +196,8 @@ export function validateConfig(input) {
   const media = (v) => !v || /^\/media\/[a-f\d-]{36}$/.test(v);
   for (const v of [
     c.theme.backgroundImage,
+    video.src,
+    video.poster,
     c.settings.favicon,
     c.settings.socialImage,
     ...c.gallery.items.map((x) => x.src),

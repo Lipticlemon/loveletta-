@@ -1260,3 +1260,94 @@ mark {
     opacity: 1 !important;
   }
 }
+
+html {
+  background: var(--bg);
+}
+.transparent-page {
+  background-color: transparent;
+}
+#app {
+  position: relative;
+  isolation: isolate;
+}
+.video-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+}
+.background-film,
+.background-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.background-film {
+  opacity: 0;
+  transition: opacity 1.4s;
+}
+.video-tint {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  opacity: var(--video-overlay, 0.64);
+}
+.has-video-background .welcome:before {
+  background: none;
+}
+.has-video-background .welcome > .floral {
+  display: none;
+}
+.has-video-background .letter-paper,
+.has-video-background .photo,
+.has-video-background .secret {
+  background-color: color-mix(
+    in srgb,
+    var(--paper) var(--paper-opacity, 85%),
+    transparent
+  );
+  backdrop-filter: blur(8px);
+}
+.has-video-background .letter-body,
+.has-video-background .welcome-inner {
+  text-shadow: 0 1px 12px color-mix(in srgb, var(--bg) 50%, transparent);
+}
+.background-toggle {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 11;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-radius: 40px;
+  padding: 10px 15px;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  color: var(--ink);
+  font:
+    10px "DM Sans",
+    sans-serif;
+  backdrop-filter: blur(8px);
+}
+@media (max-width: 600px) {
+  .background-toggle {
+    right: 14px;
+    bottom: 14px;
+    font-size: 9px;
+    padding: 10px;
+  }
+  .has-video-background .letter-paper {
+    backdrop-filter: blur(5px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .background-film {
+    transition: none;
+  }
+}
+
+.film-ready .background-poster {
+  visibility: hidden;
+}

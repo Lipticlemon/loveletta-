@@ -41,3 +41,11 @@ Maintenance mode hides the public content after publishing. The editor remains u
 Download configuration backups before major changes. Backups contain text, layout, and settings; they exclude passwords and media files. Restore them into this project, where the referenced R2 objects still exist. Reset to default creates an unsaved example draft and does not erase the live publication or history.
 
 Keep the setup invitation, editor password, and private backups to yourself. Share only the public website URL with your recipient.
+
+## Flower-field video background
+
+Under **Theme & typography → Flower-field video background**, enable a transparent page and select your uploaded video, or upload an MP4/WebM directly (up to 20 MB). The video is saved to R2 and appears in the live preview. Save draft and Publish when ready.
+
+Customize video visibility, the soft palette-colored overlay, blur, playback speed, starting timestamp, looping, autoplay, sizing, framing, mobile playback, and translucent letter/photo paper. Choose a poster image for loading, reduced motion, unavailable videos, and data-saving modes. Video sound is always muted, keeping your chosen music independent. Visitors have a pause/play background control.
+
+The supplied pink cosmos footage is a 16-second, 720p H.264 loop with a matching still image. Its source and license are documented in ASSETS.md. Full-screen video is streamed from R2 using byte ranges. Disable or replace it at any time; replacing the current background leaves earlier publications' media available for rollback.

@@ -45,3 +45,9 @@ Final Cloudflare configuration confirms workers.dev enabled independently for `l
 ## Browser verification limit
 
 A supported browser-preview capability was unavailable in this environment. No screenshots, real-device visual review, measured Core Web Vitals, or browser-specific autoplay/accessibility audit were performed. Responsive CSS includes desktop/tablet/phone breakpoints, overflow safeguards, scalable typography, reduced-motion handling, and a mobile preview width. Those behaviors still merit a real-browser/device visual review. The DOM and HTTP checks above are actual executed checks; they are not a substitute for that visual review.
+
+## Flower-field video update — 19 October 2026
+
+The expanded automated suite passes 20 checks. Added coverage includes MP4 upload validation, publication-aware video access, streamed R2 byte ranges, legacy configuration defaults, safe video configuration, transparent page rendering, reduced-motion poster fallback, muted/inline playback, framing, speed, pause/play controls, direct editor video uploads, and overlay settings saved into drafts.
+
+A 16-second 1280 × 720 pink cosmos clip and matching poster were uploaded to R2. Only background-video/transparency settings were applied to the current draft and publication; existing letter and gallery content were retained. The new publication is recorded in history. Real-browser visual/device verification remains unavailable, as documented above.

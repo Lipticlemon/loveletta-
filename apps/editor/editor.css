@@ -1111,3 +1111,11 @@ audio {
     gap: 10px;
   }
 }
+
+.media-item video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  background: #eee3e5;
+}

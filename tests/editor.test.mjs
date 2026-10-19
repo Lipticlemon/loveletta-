@@ -27,7 +27,7 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
         id,
         src: "/media/" + id,
         name: "memory.gif",
-        mime: "image/gif",
+        mime: opts.headers["Content-Type"],
         size: 6,
         folder: "Memories",
       };
@@ -103,6 +103,15 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
     document.querySelector("#toast").textContent,
     /Publish to show them/,
   );
+  document.querySelector('.tab[data-tab="theme"]').click();
+  const videoUpload = document.querySelector("#video-upload");
+  assert.ok(videoUpload);
+  videoUpload.files = [new File(["ftyp"], "Garden.mp4", { type: "video/mp4" })];
+  videoUpload.dispatchEvent(new window.Event("change", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 20));
+  const overlay = document.querySelector('[data-path="theme.video.overlay"]');
+  overlay.value = "0.35";
+  overlay.dispatchEvent(new window.Event("input", { bubbles: true }));
   document.querySelector('.tab[data-tab="music"]').click();
   const start = document.querySelector('[data-path="music.start"]');
   start.value = "75.5";
@@ -113,6 +122,10 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
   assert.equal(JSON.parse(saved.opts.body).config.music.start, 75.5);
   const draft = JSON.parse(saved.opts.body).config;
   assert.equal(draft.gallery.items.length, 2);
+  assert.equal(draft.theme.transparent, true);
+  assert.equal(draft.theme.video.enabled, true);
+  assert.equal(draft.theme.video.overlay, 0.35);
+  assert.match(draft.theme.video.src, /^\/media\//);
   assert.equal(draft.gallery.items[0].caption, "Our day");
   assert.match(draft.gallery.items[0].src, /^\/media\//);
   assert.equal(

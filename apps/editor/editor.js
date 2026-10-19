@@ -1,6 +1,10 @@
 import { cloneDefaults } from "/defaults.js";
 import { esc } from "/render.js";
-import { sanitizeRichText, validateConfig } from "/validation.js";
+import {
+  sanitizeRichText,
+  validateConfig,
+  videoDefaults,
+} from "/validation.js";
 let editSequence = 0;
 let config,
   revision,
@@ -209,6 +213,7 @@ async function load() {
     api("/api/admin/versions"),
   ]);
   config = meta.config;
+  config.theme.video = { ...videoDefaults, ...config.theme.video };
   revision = meta.revision;
   dirty = false;
   studio();
@@ -383,6 +388,67 @@ const views = {
               `<button class="preset" data-preset="${id}"><span class="preset-swatches">${colors.map((color) => `<i style="background:${color}"></i>`).join("")}</span>${label}</button>`,
           )
           .join("")}</div>`,
+      ) +
+      panel(
+        "Flower-field video background",
+        "A quiet, moving garden behind your transparent page. Video sound stays muted so your music remains separate.",
+        toggle("Transparent page background", "theme.transparent") +
+          toggle("Enable background video", "theme.video.enabled") +
+          `<div class="upload-zone" id="video-upload-zone"><strong>A garden in motion.</strong><p>Upload an MP4 or WebM video up to 20 MB. It is stored privately in R2.</p><input id="video-upload" type="file" accept="video/mp4,video/webm" aria-label="Upload background video"></div><p class="upload-progress" id="video-upload-progress" role="status"></p>` +
+          picker("Choose video", "theme.video.src", "video") +
+          picker("Poster / still image", "theme.video.poster") +
+          toggle("Autoplay (muted)", "theme.video.autoplay") +
+          toggle("Loop video", "theme.video.loop") +
+          toggle("Play on mobile", "theme.video.mobile") +
+          toggle(
+            "Use still image for reduced motion",
+            "theme.video.reduceMotion",
+          ) +
+          row(
+            field("Starting time, seconds", "theme.video.start", "number", {
+              min: 0,
+              max: 86400,
+              step: 0.1,
+            }),
+            field("Playback speed", "theme.video.speed", "range", {
+              min: 0.25,
+              max: 2,
+              step: 0.05,
+            }),
+          ) +
+          field("Video visibility", "theme.video.opacity", "range", {
+            min: 0,
+            max: 1,
+            step: 0.05,
+          }) +
+          field("Soft color overlay", "theme.video.overlay", "range", {
+            min: 0,
+            max: 1,
+            step: 0.05,
+            hint: "Lower values show more of the flower field; higher values make the words easier to read.",
+          }) +
+          field("Background blur", "theme.video.blur", "range", {
+            min: 0,
+            max: 20,
+          }) +
+          field(
+            "Letter and photo paper opacity",
+            "theme.video.paperOpacity",
+            "range",
+            { min: 0, max: 1, step: 0.05 },
+          ) +
+          row(
+            field("Video sizing", "theme.video.fit", "select", {
+              items: [
+                ["cover", "Fill the screen"],
+                ["contain", "Show the whole video"],
+              ],
+            }),
+            field("Framing", "theme.video.position", "select", {
+              items: ["center", "top", "bottom", "left", "right"],
+            }),
+          ) +
+          button("clear-video", "Remove background video", "", "danger"),
       ) +
       panel(
         "Your colors",
@@ -653,7 +719,7 @@ const views = {
     return panel(
       "Your media library",
       `Storage: ${meta.storage}. ${size(total)} used. ${meta.storage === "D1" ? "64 MB total allowance; 8 MB per audio file, 3 MB per image." : "20 MB per file; images up to 3 MB."}`,
-      `<div class="field"><label for="upload-folder">Upload folder</label><input id="upload-folder" class="plain-input" value="Memories" maxlength="80"></div><div class="upload-zone"><strong>A little treasure to keep.</strong><p>Drop your photographs or songs, or choose files below.</p><input id="upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif,audio/mpeg,audio/mp4,audio/ogg,audio/wav" multiple aria-label="Upload media"><p>Photos are resized to 1800 pixels and optimized locally before upload.</p></div><p class="upload-progress" role="status" id="upload-progress"></p><div class="field"><label for="media-filter">Find in your collection</label><input id="media-filter" placeholder="Search filename or folder…"></div><div class="media-grid">${media.map((m) => `<article class="media-item" data-search="${esc((m.name + " " + m.folder).toLowerCase())}">${m.mime.startsWith("image/") ? `<img src="/media/${m.id}" loading="lazy" alt="${esc(m.name)}">` : '<div class="audio-preview" aria-hidden="true">♫</div>'}<div class="media-info"><strong>${esc(m.name)}</strong><small>${esc(m.folder)} · ${size(m.size)}</small><div class="media-actions">${m.mime.startsWith("image/") ? button("use-photo", "Add to gallery", `data-id="${m.id}"`) : button("use-song", "Add to music", `data-id="${m.id}"`)}${button("rename-media", "Organize", `data-id="${m.id}"`)}${button("replace-media", "Replace", `data-id="${m.id}"`)}${button("delete-media", "Delete", `data-id="${m.id}"`, "danger")}</div></div></article>`).join("")}</div>${media.length ? "" : '<p class="empty">Your collection is waiting for its first little treasure.</p>'}<input type="file" id="replace-upload" hidden accept="image/jpeg,image/png,image/webp,image/gif,audio/mpeg,audio/mp4,audio/ogg,audio/wav">`,
+      `<div class="field"><label for="upload-folder">Upload folder</label><input id="upload-folder" class="plain-input" value="Memories" maxlength="80"></div><div class="upload-zone"><strong>A little treasure to keep.</strong><p>Drop your photographs, videos, or songs, or choose files below.</p><input id="upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/wav" multiple aria-label="Upload media"><p>Photos are resized to 1800 pixels and optimized locally before upload.</p></div><p class="upload-progress" role="status" id="upload-progress"></p><div class="field"><label for="media-filter">Find in your collection</label><input id="media-filter" placeholder="Search filename or folder…"></div><div class="media-grid">${media.map((m) => `<article class="media-item" data-search="${esc((m.name + " " + m.folder).toLowerCase())}">${m.mime.startsWith("image/") ? `<img src="/media/${m.id}" loading="lazy" alt="${esc(m.name)}">` : m.mime.startsWith("video/") ? `<video controls playsinline preload="metadata" src="/media/${m.id}" aria-label="${esc(m.name)}"></video>` : '<div class="audio-preview" aria-hidden="true">♫</div>'}<div class="media-info"><strong>${esc(m.name)}</strong><small>${esc(m.folder)} · ${size(m.size)}</small><div class="media-actions">${m.mime.startsWith("image/") ? button("use-photo", "Add to gallery", `data-id="${m.id}"`) : m.mime.startsWith("video/") ? button("use-video", "Use as background", `data-id="${m.id}"`) : button("use-song", "Add to music", `data-id="${m.id}"`)}${button("rename-media", "Organize", `data-id="${m.id}"`)}${button("replace-media", "Replace", `data-id="${m.id}"`)}${button("delete-media", "Delete", `data-id="${m.id}"`, "danger")}</div></div></article>`).join("")}</div>${media.length ? "" : '<p class="empty">Your collection is waiting for its first little treasure.</p>'}<input type="file" id="replace-upload" hidden accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/wav">`,
     );
   },
   settings() {
@@ -843,6 +909,30 @@ function wireSpecial() {
           (m.hidden = !m.dataset.search.includes(e.target.value.toLowerCase())),
       );
   });
+  document
+    .querySelector("#video-upload")
+    ?.addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const progress = document.querySelector("#video-upload-progress");
+      event.target.disabled = true;
+      try {
+        progress.textContent = "Uploading your garden to R2…";
+        if (!["video/mp4", "video/webm"].includes(file.type))
+          throw Error("Choose an MP4 or WebM video.");
+        const uploaded = await uploadOne(file, "Backgrounds");
+        config.theme.video.src = uploaded.src;
+        config.theme.video.enabled = true;
+        config.theme.transparent = true;
+        changed();
+        media = await api("/api/admin/media");
+        showTab("theme");
+        toast("Video added to your draft. Adjust the overlay, then Publish.");
+      } catch (error) {
+        progress.textContent = error.message;
+        event.target.disabled = false;
+      }
+    });
   const upload = document.querySelector("#upload");
   upload?.addEventListener("change", (e) => uploads([...e.target.files]));
   document
@@ -850,7 +940,7 @@ function wireSpecial() {
     ?.addEventListener("change", (e) =>
       uploads([...e.target.files], { gallery: true }),
     );
-  const zone = document.querySelector(".upload-zone");
+  const zone = document.querySelector(".upload-zone:not(#video-upload-zone)");
   zone?.addEventListener("dragover", (e) => {
     e.preventDefault();
     zone.style.background = "#f2dfe6";
@@ -1026,6 +1116,21 @@ document.addEventListener("click", async (event) => {
       config = null;
       dirty = false;
       login(false);
+      return;
+    }
+    if (action === "clear-video") {
+      config.theme.video.src = "";
+      config.theme.video.enabled = false;
+      changed();
+      showTab("theme");
+      return;
+    }
+    if (action === "use-video") {
+      config.theme.video.src = "/media/" + target.dataset.id;
+      config.theme.video.enabled = true;
+      config.theme.transparent = true;
+      changed();
+      showTab("theme");
       return;
     }
     if (action === "new-letter") {
@@ -1306,7 +1411,7 @@ async function uploadOne(file, folder) {
   const optimized = await optimize(file);
   const max = meta.storage === "R2" ? 20 : 8;
   if (optimized.size > max * 1024 * 1024)
-    throw Error(`Keep audio below ${max} MB.`);
+    throw Error(`Keep uploads below ${max} MB.`);
   if (optimized.type.startsWith("image/") && optimized.size > 3 * 1024 * 1024)
     throw Error("Keep images below 3 MB.");
   return api("/api/admin/media", {

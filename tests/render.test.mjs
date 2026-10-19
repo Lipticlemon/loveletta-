@@ -105,3 +105,54 @@ test("typewriter keeps full text accessible and builds progressive word animatio
   );
   assert.equal(document.querySelectorAll(".petal").length, 14);
 });
+
+test("transparent video background honors reduced motion without fetching a video", () => {
+  dom();
+  const c = cloneDefaults();
+  c.theme.transparent = true;
+  c.theme.video.enabled = true;
+  c.theme.video.src = "/media/00000000-0000-0000-0000-000000000001";
+  c.theme.video.poster = "/media/00000000-0000-0000-0000-000000000002";
+  render(c);
+  assert.ok(document.body.classList.contains("transparent-page"));
+  assert.ok(document.querySelector(".video-backdrop"));
+  assert.ok(document.querySelector(".background-poster"));
+  assert.equal(document.querySelector("#background-video"), null);
+  assert.equal(document.body.style.backgroundImage, "none");
+});
+test("video framing, speed, muted playback, and pause controls follow editor settings", () => {
+  const window = dom();
+  globalThis.matchMedia = () => ({ matches: false });
+  window.HTMLElement.prototype.paused = true;
+  window.HTMLElement.prototype.pause = function () {
+    this.paused = true;
+  };
+  window.HTMLElement.prototype.play = function () {
+    this.paused = false;
+    return Promise.resolve();
+  };
+  window.HTMLElement.prototype.load = function () {};
+  const c = cloneDefaults();
+  c.theme.video = {
+    ...c.theme.video,
+    enabled: true,
+    src: "/media/00000000-0000-0000-0000-000000000001",
+    autoplay: false,
+    fit: "contain",
+    position: "top",
+    speed: 1.25,
+  };
+  render(c);
+  const video = document.querySelector("#background-video");
+  assert.ok(video);
+  assert.equal(video.muted, true);
+  assert.equal(video.playbackRate, 1.25);
+  assert.equal(video.style.objectFit, "contain");
+  assert.equal(video.style.objectPosition, "top");
+  assert.ok(video.hasAttribute("playsinline"));
+  const control = document.querySelector(".background-toggle");
+  control.click();
+  assert.equal(video.paused, false);
+  control.click();
+  assert.equal(video.paused, true);
+});

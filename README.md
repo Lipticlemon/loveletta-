@@ -14,6 +14,8 @@ The private studio has twelve organized sections, a live desktop/mobile preview,
 
 The initial content is a complete example love letter. Personalize the recipient, sender, words, photos, and soundtrack in the studio before sharing the link. No personal photographs or licensed songs are bundled.
 
+A customizable full-screen flower-field video background is available under Theme & typography. Use transparent page backgrounds with adjustable paper opacity; upload MP4/WebM videos to R2 and configure overlays, blur, playback speed, start time, framing, autoplay, looping, and mobile behavior. A muted pink cosmos-field clip with a matching still image is included in the live configuration. See [asset credits](docs/ASSETS.md).
+
 ## Architecture
 
 ```text
@@ -61,7 +63,7 @@ Visitor passwords and editor password changes are security operations and apply 
 
 ## Media limits
 
-R2 uploads are limited by this app to 20 MB per file, with images limited to 3 MB after optimization. Photos are resized locally to a maximum edge of 1800 pixels and encoded as WebP; animated GIFs are preserved. JPEG, PNG, WebP, GIF, MP3, M4A, OGG, and WAV are accepted. Use smaller compressed audio for faster playback. SVG uploads are intentionally excluded to prevent active content.
+R2 uploads are limited by this app to 20 MB per file, with images limited to 3 MB after optimization. Photos are resized locally to a maximum edge of 1800 pixels and encoded as WebP; animated GIFs are preserved. JPEG, PNG, WebP, GIF, MP3, M4A, OGG, WAV, MP4, and WebM are accepted. Use smaller compressed audio for faster playback. SVG uploads are intentionally excluded to prevent active content.
 
 Replacing an upload changes its references in the current draft while retaining originals for published history. Unused files can be deleted. Files referenced by drafts, live content, or retained publications are protected from accidental deletion.
 

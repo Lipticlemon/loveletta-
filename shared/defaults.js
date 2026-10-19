@@ -1,3 +1,4 @@
+import { videoDefaults } from "./validation.js";
 export const defaults = {
   schemaVersion: 1,
   welcome: {
@@ -43,6 +44,8 @@ export const defaults = {
     border: 1,
     texture: true,
     backgroundImage: "",
+    transparent: false,
+    video: { ...videoDefaults },
     gradient: true,
     dark: false,
     buttonStyle: "pill",

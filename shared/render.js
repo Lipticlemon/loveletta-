@@ -1,4 +1,4 @@
-import { sanitizeRichText } from "./validation.js";
+import { sanitizeRichText, videoDefaults } from "./validation.js";
 export const esc = (v) =>
   String(v ?? "").replace(
     /[&<>"']/g,
@@ -15,6 +15,7 @@ export function render(config, { preview = false, open = false } = {}) {
     t = c.theme,
     e = c.effects,
     root = document.documentElement;
+  const v = { ...videoDefaults, ...t.video };
   const vars = {
     bg: t.background,
     paper: t.paper,
@@ -43,12 +44,16 @@ export function render(config, { preview = false, open = false } = {}) {
     e.enabled && e.sway ? "sway" : "",
     !e.enabled ? "no-effects" : "",
     e.positions === "top" ? "effect-top" : "",
+    t.transparent ? "transparent-page" : "",
+    v.enabled && asset(v.src) ? "has-video-background" : "",
   ].join(" ");
-  document.body.style.backgroundImage = asset(t.backgroundImage)
-    ? `url('${asset(t.backgroundImage)}')`
-    : t.gradient
-      ? "radial-gradient(ellipse at 50% 10%,color-mix(in srgb,var(--flower) 6%,transparent),transparent 65%)"
-      : "none";
+  document.body.style.backgroundImage = t.transparent
+    ? "none"
+    : asset(t.backgroundImage)
+      ? `url('${asset(t.backgroundImage)}')`
+      : t.gradient
+        ? "radial-gradient(ellipse at 50% 10%,color-mix(in srgb,var(--flower) 6%,transparent),transparent 65%)"
+        : "none";
   document.body.style.backgroundSize = "cover";
   document.title = c.settings.title;
   document
@@ -71,6 +76,102 @@ export function render(config, { preview = false, open = false } = {}) {
     .join("");
   document.querySelector("#app").innerHTML =
     `${preview ? '<div class="preview-banner">UNPUBLISHED PREVIEW · ONLY VISIBLE TO YOU</div>' : ""}<header class="masthead"><a class="brand" href="#">LoveLetta<i aria-hidden="true">❧</i></a><nav class="nav" aria-label="Chapters">${nav}</nav><span class="mast-note">a little love, in every word</span></header><main id="main"><section class="welcome"><img class="floral" src="/floral.svg" alt="" fetchpriority="high"><img class="floral right" src="/floral.svg" alt=""><div class="welcome-inner rise-text"><p class="eyebrow">${esc(c.welcome.eyebrow)}</p><h1>${title}</h1><p class="welcome-subtitle">${esc(c.welcome.subtitle)}</p><div class="envelope-area"><button class="envelope" aria-label="${esc(c.welcome.button)}"><span class="envelope-paper">For ${esc(c.welcome.recipient)}</span><span class="envelope-flap"></span><span class="wax" aria-hidden="true">L</span></button></div><button class="open-label">${esc(c.welcome.button)}<span aria-hidden="true">↗</span></button><p class="small-note">${esc(c.welcome.note)}</p></div><div class="intro-foot">A LETTER TO KEEP. A LOVE TO REMEMBER.</div></section><div class="letter-journey">${enabled.map((s, i) => section(s, i + 1)).join("")}<footer class="closing"><span class="tiny-flower" aria-hidden="true">❧</span><p>${esc(c.settings.footer)}</p><small>WITH LOVE, ${esc(c.welcome.sender).toUpperCase()}</small></footer></div></main>${c.music.enabled && c.music.tracks.length ? '<div class="music-player ' + (c.music.design === "square" ? "square" : "") + '"><button id="music-toggle" aria-label="Play music">▶</button><div><span id="track-name"></span><small id="music-status">A SOUNDTRACK FOR US</small></div><audio id="audio" preload="metadata"></audio></div>' : ""}<dialog class="dialog" id="photo-dialog"><button aria-label="Close photograph">×</button><img alt=""><p></p></dialog>`;
+  let backgroundCleanup = () => {};
+  if (v.enabled && asset(v.src)) {
+    const layer = document.createElement("div");
+    layer.className = "video-backdrop";
+    layer.setAttribute("aria-hidden", "true");
+    const reduced =
+      v.reduceMotion && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const mobileDisabled =
+      !v.mobile && matchMedia("(max-width: 600px)").matches;
+    const saveData =
+      typeof navigator !== "undefined" && navigator.connection?.saveData;
+    const poster = asset(v.poster) || asset(t.backgroundImage);
+    const style = `object-fit:${v.fit};object-position:${v.position};opacity:${v.opacity};filter:blur(${v.blur}px)`;
+    layer.innerHTML = `${poster ? `<img class="background-poster" src="${poster}" alt="" style="${style}">` : ""}<div class="video-tint"></div>`;
+    root.style.setProperty("--video-overlay", v.overlay);
+    root.style.setProperty("--paper-opacity", v.paperOpacity * 100 + "%");
+    document.querySelector("#app").prepend(layer);
+    if (!reduced && !mobileDisabled && !saveData) {
+      const background = document.createElement("video");
+      background.id = "background-video";
+      background.className = "background-film";
+      background.setAttribute("style", style);
+      background.setAttribute("playsinline", "");
+      background.setAttribute("muted", "");
+      background.muted = true;
+      background.defaultMuted = true;
+      background.preload = v.autoplay ? "auto" : "metadata";
+      background.loop = v.loop && v.start === 0;
+      background.playbackRate = v.speed;
+      if (poster) background.poster = poster;
+      layer.insertBefore(background, layer.querySelector(".video-tint"));
+      const control = document.createElement("button");
+      control.className = "background-toggle";
+      control.type = "button";
+      control.textContent = "Play background";
+      control.setAttribute("aria-label", "Play flower field background video");
+      document.querySelector("#app").append(control);
+      let manualPause = !v.autoplay;
+      const play = () => {
+        const promise = background.play();
+        promise?.catch(() => {
+          control.textContent = "Play background";
+        });
+      };
+      background.addEventListener("loadedmetadata", () => {
+        if (v.start < background.duration) background.currentTime = v.start;
+      });
+      background.addEventListener("playing", () => {
+        layer.classList.add("film-ready");
+        control.textContent = "Pause background";
+        control.setAttribute(
+          "aria-label",
+          "Pause flower field background video",
+        );
+      });
+      background.addEventListener("pause", () => {
+        control.textContent = "Play background";
+        control.setAttribute(
+          "aria-label",
+          "Play flower field background video",
+        );
+      });
+      background.addEventListener("ended", () => {
+        if (v.loop) {
+          background.currentTime = v.start < background.duration ? v.start : 0;
+          play();
+        }
+      });
+      background.addEventListener("error", () => {
+        layer.classList.remove("film-ready");
+        control.hidden = true;
+      });
+      control.addEventListener("click", () => {
+        if (background.paused) {
+          manualPause = false;
+          play();
+        } else {
+          manualPause = true;
+          background.pause();
+        }
+      });
+      const visibility = () => {
+        if (document.visibilityState === "hidden") background.pause();
+        else if (!manualPause) play();
+      };
+      document.addEventListener("visibilitychange", visibility);
+      background.src = asset(v.src);
+      if (v.autoplay) play();
+      backgroundCleanup = () => {
+        document.removeEventListener("visibilitychange", visibility);
+        background.pause();
+        background.removeAttribute("src");
+        background.load?.();
+      };
+    }
+  }
   if (t.headingSize !== 92)
     document.querySelector(".welcome h1").style.fontSize =
       `clamp(44px,${t.headingSize / 14}vw,${t.headingSize}px)`;
@@ -337,6 +438,7 @@ export function render(config, { preview = false, open = false } = {}) {
   if (e.enabled && e.petals)
     window.addEventListener("pointermove", pointer, { passive: true });
   cleanup = () => {
+    backgroundCleanup();
     window.removeEventListener("pointermove", pointer);
     if (pointerFrame) cancelAnimationFrame(pointerFrame);
     intervals.forEach(clearInterval);

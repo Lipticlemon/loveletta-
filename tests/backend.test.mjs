@@ -56,9 +56,13 @@ class R2 {
     this.objects.set(k, { bytes: new Uint8Array(b), opts });
     return { key: k };
   }
-  async get(k) {
+  async get(k, options) {
     const v = this.objects.get(k);
-    return v ? { arrayBuffer: async () => v.bytes.buffer } : null;
+    if (!v) return null;
+    const offset = options?.range?.offset || 0,
+      length = options?.range?.length || v.bytes.length;
+    const bytes = v.bytes.slice(offset, offset + length);
+    return { body: bytes, arrayBuffer: async () => bytes.buffer };
   }
   async delete(k) {
     this.objects.delete(k);
@@ -418,4 +422,61 @@ test("archived publications can be deleted while current publication stays prote
     (await req("/api/admin/versions/current", { method: "DELETE" })).status,
     409,
   );
+});
+
+test("MP4 backgrounds upload to R2, publish securely, and stream ranges", async () => {
+  const bytes = Uint8Array.from([
+    0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109, 0, 0, 0, 0,
+  ]);
+  const upload = await req("/api/admin/media", {
+    method: "POST",
+    raw: bytes,
+    headers: { "content-type": "video/mp4", "x-file-name": "flowers.mp4" },
+  });
+  assert.equal(upload.status, 201);
+  const media = await upload.json();
+  const c = cloneDefaults();
+  c.theme.transparent = true;
+  c.theme.video.enabled = true;
+  c.theme.video.src = media.src;
+  assert.equal(
+    (
+      await req("/api/admin/draft", {
+        method: "PUT",
+        body: { config: c, revision: 1 },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await req("/api/admin/publish", { method: "POST", body: { revision: 2 } }))
+      .status,
+    200,
+  );
+  const streamed = await req(media.src, {
+    surface: "public",
+    headers: { range: "bytes=4-7" },
+  });
+  assert.equal(streamed.status, 206);
+  assert.equal(streamed.headers.get("content-type"), "video/mp4");
+  assert.equal(await streamed.text(), "ftyp");
+  assert.equal(
+    (
+      await req("/api/admin/media", {
+        method: "POST",
+        raw: "<html>bad</html>",
+        headers: { "content-type": "video/mp4" },
+      })
+    ).status,
+    415,
+  );
+});
+test("legacy configuration gains video defaults and rejects unsafe video options", () => {
+  const c = cloneDefaults();
+  delete c.theme.video;
+  assert.equal(validateConfig(c).theme.video.enabled, false);
+  c.theme.video = { enabled: true, src: "https://untrusted.example/video.mp4" };
+  assert.throws(() => validateConfig(c), /uploaded asset/);
+  c.theme.video = { speed: 9 };
+  assert.throws(() => validateConfig(c), /speed/);
 });
