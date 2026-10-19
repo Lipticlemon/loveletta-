@@ -5,6 +5,7 @@ import {
   sanitizeRichText,
   validateConfig,
   videoDefaults,
+  mailDefaults,
 } from "/validation.js";
 let editSequence = 0;
 let config,
@@ -34,8 +35,13 @@ const tabs = [
   ["media", "▦", "Media library"],
   ["settings", "⚙", "Settings & security"],
   ["history", "↶", "Publishing history"],
+  ["inbox", "✉", "Letters & replies"],
 ];
 const titles = {
+  inbox: [
+    "A little post office, just for you.",
+    "Read their words, and send a little love back.",
+  ],
   dashboard: [
     "A little love, beautifully made.",
     "Welcome to your studio. This is where your love story comes to life.",
@@ -215,6 +221,7 @@ async function load() {
     api("/api/admin/versions"),
   ]);
   config = meta.config;
+  config.correspondence = { ...mailDefaults, ...config.correspondence };
   config.theme.video = { ...videoDefaults, ...config.theme.video };
   revision = meta.revision;
   dirty = false;
@@ -320,7 +327,60 @@ function showTab(next) {
   document.querySelector("#controls").innerHTML = views[tab]();
   wireSpecial();
 }
+let selectedThread = null,
+  replyRequestId = crypto.randomUUID();
+async function loadInbox() {
+  const host = document.querySelector("#inbox-threads");
+  if (!host) return;
+  try {
+    const threads = await api("/api/admin/inbox");
+    if (!host.isConnected) return;
+    host.innerHTML = threads.length
+      ? threads
+          .map(
+            (t) =>
+              `<button class="inbox-thread" data-action="open-thread" data-id="${esc(t.id)}"><strong>${esc(t.name)} ${t.unread ? `<span class="unread-count">${Number(t.unread)} new</span>` : ""}</strong><small>${esc(new Date(t.updated_at).toLocaleString())}</small><span>${esc(t.preview.slice(0, 100))}</span></button>`,
+          )
+          .join("")
+      : '<p class="empty">Their first letter will find its way here.</p>';
+  } catch (error) {
+    if (host.isConnected) host.textContent = error.message;
+  }
+}
+async function openThread(id) {
+  const host = document.querySelector("#inbox-reader");
+  if (!host) return;
+  selectedThread = id;
+  replyRequestId = crypto.randomUUID();
+  host.textContent = "Unfolding their letters…";
+  const result = await api("/api/admin/inbox/" + id);
+  if (!host.isConnected || selectedThread !== id) return;
+  host.innerHTML = `<div class="inbox-conversation">${result.messages.map((m) => `<article class="inbox-note ${m.direction === "admin" ? "outgoing" : ""}"><small>${m.direction === "admin" ? "YOUR REPLY" : "THEIR LETTER"} · ${esc(new Date(m.created_at).toLocaleString())}</small><h3>${esc(m.name)}</h3><p>${esc(m.body)}</p></article>`).join("")}</div><label class="inbox-reply-label" for="inbox-reply">Write a letter back</label><textarea id="inbox-reply" rows="7" maxlength="5000" placeholder="Dear you, …"></textarea><p class="panel-description">Your reply arrives on their next visit in the same browser. Clearing browser cookies loses that private letter box.</p>${button("send-reply", "Send my reply ↗", "", "rose")}<p id="inbox-status" role="status"></p>`;
+  await api("/api/admin/inbox/" + id + "/read", { method: "POST", body: {} });
+  await loadInbox();
+}
 const views = {
+  inbox() {
+    return (
+      panel(
+        "Your letter box",
+        "Messages are private. Replies send immediately, independently of publishing your design.",
+        `<div class="inline-actions">${button("refresh-inbox", "Refresh letters")}</div><div class="inbox-threads" id="inbox-threads"><p>Looking for letters…</p></div><div id="inbox-reader"><p class="empty">Choose a letter to unfold it.</p></div>`,
+      ) +
+      panel(
+        "The reply stationery",
+        "Save draft and publish these design changes. Add the reply chapter in Page layout if you have removed it.",
+        toggle("Allow visitor letters", "correspondence.enabled") +
+          toggle("Fold, seal & fly animations", "correspondence.animation") +
+          field("Heading", "correspondence.title") +
+          field("Introduction", "correspondence.subtitle") +
+          field("Paper greeting", "correspondence.greeting") +
+          field("Send button", "correspondence.button") +
+          field("Delivery message", "correspondence.success") +
+          field("Returning letter heading", "correspondence.returnTitle"),
+      )
+    );
+  },
   dashboard() {
     return `<div class="dashboard-hero"><img src="/floral.svg" alt=""><h2>A letter they will<br>keep in their heart.</h2><p>Your garden is ready to grow. Add your words, choose your flowers, and make a little magic.</p>${button("tab", "Make it personal ↗", 'data-target="letters"', "rose")}</div><div class="stats"><div class="stat"><small>YOUR LETTERS</small><strong>${config.letters.length}</strong></div><div class="stat"><small>MEMORIES</small><strong>${config.gallery.items.length}</strong></div><div class="stat"><small>CHAPTERS</small><strong>${config.sections.filter((s) => s.enabled).length}</strong></div></div>${panel(
       "A little finishing touch",
@@ -604,7 +664,7 @@ const views = {
           config.music.tracks
             .map(
               (t, i) =>
-                `<div class="collection-item"><div class="item-heading"><strong>SONG ${i + 1}</strong><button data-remove="music.tracks" data-index="${i}">Remove</button></div>${field("Display name", `music.tracks.${i}.name`)}${picker("Audio file", `music.tracks.${i}.src`, "audio")}${row(timeField("Start playing at", `music.tracks.${i}.start`, t.start ?? config.music.start), timeField("Stop playing at", `music.tracks.${i}.end`, t.end ?? null, true))}<div class="inline-actions">${button("move-item", "↑", `data-array="music.tracks" data-index="${i}" data-step="-1"`)}${button("move-item", "↓", `data-array="music.tracks" data-index="${i}" data-step="1"`)}</div>${t.src ? `<audio controls preload="metadata" src="${esc(t.src)}"></audio>` : ""}</div>`,
+                `<div class="collection-item"><div class="item-heading"><strong>SONG ${i + 1}</strong><button data-remove="music.tracks" data-index="${i}">Remove</button></div>${field("Display name", `music.tracks.${i}.name`)}${picker("Audio file", `music.tracks.${i}.src`, "audio")}${field("Lyrics", `music.tracks.${i}.lyrics`, "textarea", { hint: "Paste your own lyrics or LRC lines such as [00:45.50]Our favorite line. Timestamps follow the original song clock." })}${field("Lyrics delay in seconds", `music.tracks.${i}.lyricsOffset`, "number", { min: -300, max: 300, step: 0.1, hint: "Positive values show timed lines later; negative values show them earlier." })}<div class="field"><label for="lyrics-file-${i}">Import .lrc or .txt lyrics</label><input id="lyrics-file-${i}" type="file" data-lyrics-index="${i}" accept=".lrc,.txt,text/plain"></div>${row(timeField("Start playing at", `music.tracks.${i}.start`, t.start ?? config.music.start), timeField("Stop playing at", `music.tracks.${i}.end`, t.end ?? null, true))}<div class="inline-actions">${button("move-item", "↑", `data-array="music.tracks" data-index="${i}" data-step="-1"`)}${button("move-item", "↓", `data-array="music.tracks" data-index="${i}" data-step="1"`)}</div>${t.src ? `<audio controls preload="metadata" src="${esc(t.src)}"></audio>` : ""}</div>`,
             )
             .join("") +
           button("add-song", "+ Add song"),
@@ -738,7 +798,7 @@ const views = {
             )}${s.type === "quote" ? field("Quotation", `sections.${i}.text`, "textarea") : ""}</details>`,
         )
         .join("") +
-        `<div class="field"><label for="new-section">Add a chapter</label><select id="new-section" class="plain-input">${["letter", "gallery", "timeline", "surprises", "quote"].map((s) => `<option>${s}</option>`).join("")}</select></div>` +
+        `<div class="field"><label for="new-section">Add a chapter</label><select id="new-section" class="plain-input">${["letter", "gallery", "timeline", "surprises", "quote", "reply"].map((s) => `<option>${s}</option>`).join("")}</select></div>` +
         button("add-section", "+ Add chapter"),
     );
   },
@@ -890,6 +950,25 @@ function size(v) {
     : (v / 1048576).toFixed(1) + " MB";
 }
 function wireSpecial() {
+  if (tab === "inbox") void loadInbox();
+  document.querySelectorAll("[data-lyrics-index]").forEach((input) =>
+    input.addEventListener("change", async () => {
+      try {
+        const file = input.files[0];
+        if (!file) return;
+        if (file.size > 80000)
+          throw Error("Choose a lyrics file smaller than 80 KB.");
+        const text = await file.text();
+        if (text.length > 20000)
+          throw Error("Lyrics may contain up to 20,000 characters.");
+        set(`music.tracks.${input.dataset.lyricsIndex}.lyrics`, text);
+        showTab("music");
+        toast("Lyrics added to your draft.");
+      } catch (error) {
+        toast(error.message);
+      }
+    }),
+  );
   const rich = document.querySelector("#rich-body");
   if (rich) {
     rich.addEventListener("input", () =>
@@ -1138,6 +1217,31 @@ document.addEventListener("click", async (event) => {
   const target = event.target.closest("button,a");
   if (!target || !config) return;
   try {
+    if (target.dataset.action === "refresh-inbox") {
+      await loadInbox();
+      return;
+    }
+    if (target.dataset.action === "open-thread") {
+      await openThread(target.dataset.id);
+      return;
+    }
+    if (target.dataset.action === "send-reply") {
+      const body = document.querySelector("#inbox-reply").value.trim();
+      if (!body) throw Error("Write a little something before sending.");
+      const thread = selectedThread;
+      target.disabled = true;
+      try {
+        await api("/api/admin/inbox/" + thread + "/reply", {
+          method: "POST",
+          body: { body, requestId: replyRequestId },
+        });
+        if (selectedThread === thread) await openThread(thread);
+        toast("Your reply is sealed and waiting for their next visit.");
+      } finally {
+        if (target.isConnected) target.disabled = false;
+      }
+      return;
+    }
     if (target.dataset.tab) {
       showTab(target.dataset.tab);
       return;
@@ -1274,6 +1378,15 @@ document.addEventListener("click", async (event) => {
       });
     if (action === "add-section") {
       const type = document.querySelector("#new-section").value;
+      if (type === "reply" && config.sections.some((s) => s.type === "reply")) {
+        config.sections.find((s) => s.type === "reply").enabled = true;
+        changed();
+        showTab("layout");
+        toast(
+          "Your reply chapter is already in the layout and is now visible.",
+        );
+        return;
+      }
       config.sections.push({
         id: crypto.randomUUID(),
         type,

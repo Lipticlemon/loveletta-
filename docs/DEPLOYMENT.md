@@ -65,3 +65,9 @@ If an editor password has been lost after setup, an authorized account owner can
 ## Production verification
 
 The production-check script accepts an authorized temporary session token through stdin. It verifies HTTP delivery, authorization, draft isolation, publishing, actual R2 writes/reads, ranges, rollback, and visitor gating. It restores original content in its cleanup block. The deployment operator must remove the temporary session, test publications, and test media afterward. Never use an end user's password for this check or commit session material.
+
+## Correspondence migration
+
+For deployments created before the reply feature, apply `backend/migrations/0002_correspondence.sql` to the existing D1 database before deploying the updated API. It creates visitor identities, correspondence, and inbox indexes without changing existing content. New installations use the complete `backend/schema.sql` automatically. Add one `reply` chapter and correspondence defaults to each existing draft/publication independently; never replace a publication with an unpublished draft during migration.
+
+Visitor tokens are stored only as SHA-256 digests; the random bearer value stays in an HttpOnly browser cookie. All inbox reads and replies require an administrator session. Public send/read routes require the site's visitor password when enabled, honor maintenance/disabled correspondence, use same-origin mutation guards and parameterized SQL, cap message sizes, rate-limit new identities and sends by hashed IP, and accept stable request IDs for safe retries. Public delivery reveals only the requesting browser's conversation. Plaintext message content is HTML-escaped in both readers. Configuration backups and publishing history do not include private correspondence; use a protected D1 database export for a full data backup.

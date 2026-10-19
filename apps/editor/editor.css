@@ -1125,3 +1125,89 @@ audio {
 .field .time-error {
   color: #b2375a;
 }
+.inbox-threads {
+  display: grid;
+  gap: 8px;
+  max-height: 330px;
+  overflow: auto;
+  margin: 18px 0 24px;
+}
+.inbox-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  text-align: left;
+  border: 1px solid #ead7df;
+  border-radius: 8px;
+  background: #fffaf9;
+  padding: 16px;
+  color: #624955;
+  cursor: pointer;
+  font: inherit;
+}
+.inbox-thread:hover,
+.inbox-thread:focus-visible {
+  border-color: #ad526d;
+  background: #fff2f4;
+}
+.inbox-thread small {
+  font-size: 10px;
+}
+.inbox-thread > span {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.unread-count {
+  color: #9f3055;
+  font-size: 10px;
+  padding-left: 10px;
+}
+.inbox-conversation {
+  max-height: 580px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.inbox-note {
+  padding: 25px;
+  background: #fffaf0;
+  border: 1px solid #eddfcd;
+  margin: 12px 0;
+  border-radius: 3px;
+}
+.inbox-note.outgoing {
+  background: #fff1f5;
+  margin-left: 20px;
+}
+.inbox-note small {
+  font-size: 9px;
+  color: #947481;
+}
+.inbox-note h3 {
+  font-family: Georgia, serif;
+  font-size: 20px;
+  font-weight: 400;
+}
+.inbox-note p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  font-family: Georgia, serif;
+}
+.inbox-reply-label {
+  display: block;
+  margin: 24px 0 10px;
+  font-size: 12px;
+}
+#inbox-reply {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #dfc8d1;
+  border-radius: 4px;
+  background: #fffcf8;
+  padding: 18px;
+  font:
+    16px/1.8 Georgia,
+    serif;
+  color: #614654;
+  resize: vertical;
+}

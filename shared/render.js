@@ -1,3 +1,4 @@
+import { mailMarkup, mountMail } from "./mail.js";
 import { musicMarkup, mountMusicPlayer } from "./music.js";
 import { sanitizeRichText, videoDefaults } from "./validation.js";
 export const esc = (v) =>
@@ -321,6 +322,11 @@ export function render(config, { preview = false, open = false } = {}) {
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();
   });
+  const correspondence = mountMail(
+    document.querySelector("#app"),
+    c.correspondence,
+    { preview },
+  );
   const soundtrack = mountMusicPlayer(document.querySelector("#app"), c.music, {
     preview,
   });
@@ -406,6 +412,7 @@ export function render(config, { preview = false, open = false } = {}) {
     intervals.forEach(clearInterval);
     observer.disconnect();
     soundtrack.destroy();
+    correspondence.destroy();
   };
   function noteFront(n) {
     return `<span class="heart" aria-hidden="true">${e.hearts ? "♡" : "❧"}</span><strong>${esc(n.label)}</strong><small>TAP TO UNFOLD</small>`;
@@ -421,6 +428,7 @@ export function render(config, { preview = false, open = false } = {}) {
       content = `<span class="chapter">${chapter} · Our story</span><h2 class="section-title">${esc(c.timeline.title)}</h2><div class="timeline">${c.timeline.items.map((m) => `<article class="moment"><time>${esc(m.date)}</time><h3>${esc(m.title)}</h3><p>${esc(m.description)}</p></article>`).join("")}</div>`;
     if (s.type === "surprises")
       content = `<span class="chapter">${chapter} · Sealed with a little love</span><h2 class="section-title">${esc(c.surprises.title)}</h2><p class="section-subtitle">${esc(c.surprises.subtitle)}</p><div class="notes">${c.surprises.items.map((n) => `<button class="secret" data-note="${esc(n.id)}" aria-expanded="false">${noteFront(n)}</button>`).join("")}</div>`;
+    if (s.type === "reply") content = mailMarkup(c.correspondence);
     if (s.type === "quote")
       content = `<span class="tiny-flower">❧</span><blockquote class="section-title">${esc(s.text || "In a world of passing things, you are my favorite constant.")}</blockquote>`;
     return `<section id="${esc(s.id)}" class="section aligned-${["left", "right"].includes(s.align) ? s.align : "center"} ${s.desktop === "narrow" ? "narrow" : ""} ${s.mobile === "single" ? "mobile-single" : ""} ${s.animation !== "none" ? "reveal" : ""} ${s.animation === "bloom" ? "bloom" : ""}">${content}</section>`;

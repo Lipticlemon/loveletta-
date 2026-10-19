@@ -169,3 +169,26 @@ test("end timer stops the excerpt even without a timeupdate event", async (t) =>
   assert.equal(audio.paused, true);
   assert.equal(audio.currentTime, 0.02);
 });
+test("lyrics use the original song clock, honor offsets, escape HTML, and switch with songs", (t) => {
+  const songs = structuredClone(tracks);
+  songs[0].lyrics =
+    "[00:40]Before\n[00:45]<img src=x onerror=alert(1)>\n[01:00]Next";
+  songs[0].lyricsOffset = 1;
+  songs[1].lyrics = "A plain lyric";
+  const { root, audio, event } = fixture(t, { tracks: songs });
+  root.querySelector("#lyrics-toggle").click();
+  assert.equal(root.querySelector("#music-lyrics").hidden, false);
+  assert.equal(root.querySelector("#music-lyrics img"), null);
+  assert.equal(root.querySelector(".lyric-line.active").textContent, "Before");
+  audio.currentTime = 46;
+  event("timeupdate");
+  assert.match(root.querySelector(".lyric-line.active").textContent, /<img/);
+  root.querySelector("#playlist-toggle").click();
+  assert.equal(root.querySelector("#music-lyrics").hidden, true);
+  root.querySelector("#music-next").click();
+  assert.match(
+    root.querySelector("#music-lyrics").textContent,
+    /A plain lyric/,
+  );
+  assert.equal(root.querySelector(".lyric-line.active"), null);
+});

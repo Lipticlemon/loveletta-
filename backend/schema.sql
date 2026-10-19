@@ -7,3 +7,7 @@ CREATE INDEX IF NOT EXISTS session_expiry ON sessions(expires);
 CREATE TABLE IF NOT EXISTS attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS media (id TEXT PRIMARY KEY, name TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL, folder TEXT NOT NULL, created_at TEXT NOT NULL, storage TEXT NOT NULL DEFAULT 'd1');
 CREATE TABLE IF NOT EXISTS media_chunks (media_id TEXT NOT NULL REFERENCES media(id) ON DELETE CASCADE, part INTEGER NOT NULL, content TEXT NOT NULL, PRIMARY KEY(media_id,part));
+CREATE TABLE IF NOT EXISTS mail_visitors (id TEXT PRIMARY KEY, token_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS correspondence (id TEXT PRIMARY KEY, visitor_id TEXT NOT NULL REFERENCES mail_visitors(id), direction TEXT NOT NULL CHECK(direction IN ('visitor','admin')), name TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT);
+CREATE INDEX IF NOT EXISTS correspondence_thread ON correspondence(visitor_id,created_at);
+CREATE INDEX IF NOT EXISTS correspondence_unread ON correspondence(direction,read_at);

@@ -48,7 +48,13 @@ export function createFrontend(surface, assets, html, previewHtml = "") {
         if (path.startsWith("/api/") || path.startsWith("/media/")) {
           const publicAllowed =
             path.startsWith("/media/") ||
-            ["/api/content", "/api/unlock", "/api/health"].includes(path);
+            [
+              "/api/content",
+              "/api/unlock",
+              "/api/health",
+              "/api/mail",
+              "/api/mail/read",
+            ].includes(path);
           if (surface === "public" && !publicAllowed)
             return new Response("Not found", { status: 404, headers });
           const upstream = await proxy();

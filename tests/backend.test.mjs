@@ -480,3 +480,149 @@ test("legacy configuration gains video defaults and rejects unsafe video options
   c.theme.video = { speed: 9 };
   assert.throws(() => validateConfig(c), /speed/);
 });
+test("visitor letters are isolated, retries are idempotent, and admin replies return only to their browser", async () => {
+  const first = await req("/api/mail", { surface: "public", cookie: "" });
+  assert.equal(first.status, 200);
+  assert.match(
+    first.headers.get("set-cookie"),
+    /HttpOnly; Secure; SameSite=Strict/,
+  );
+  const visitorCookie = first.headers.get("set-cookie").split(";")[0];
+  const other = await req("/api/mail", { surface: "public", cookie: "" });
+  const otherCookie = other.headers.get("set-cookie").split(";")[0];
+  const id = crypto.randomUUID();
+  const send = () =>
+    req("/api/mail", {
+      surface: "public",
+      cookie: visitorCookie,
+      method: "POST",
+      body: {
+        requestId: id,
+        name: "Their name",
+        body: "A private little letter",
+      },
+    });
+  assert.equal((await send()).status, 201);
+  assert.equal((await send()).status, 200);
+  assert.equal((await req("/api/admin/inbox", { cookie: "" })).status, 401);
+  const threads = await (await req("/api/admin/inbox")).json();
+  assert.equal(threads.length, 1);
+  assert.equal(threads[0].unread, 1);
+  const thread = threads[0].id;
+  const read = await (await req("/api/admin/inbox/" + thread)).json();
+  assert.equal(read.messages[0].body, "A private little letter");
+  await req("/api/admin/inbox/" + thread + "/read", {
+    method: "POST",
+    body: {},
+  });
+  assert.equal((await (await req("/api/admin/inbox")).json())[0].unread, 0);
+  const reply = crypto.randomUUID();
+  assert.equal(
+    (
+      await req("/api/admin/inbox/" + thread + "/reply", {
+        method: "POST",
+        body: { requestId: reply, body: "A letter back" },
+      })
+    ).status,
+    201,
+  );
+  assert.equal(
+    (
+      await req("/api/admin/inbox/" + thread + "/reply", {
+        method: "POST",
+        body: { requestId: reply, body: "A letter back" },
+      })
+    ).status,
+    200,
+  );
+  let received = await (
+    await req("/api/mail", { surface: "public", cookie: visitorCookie })
+  ).json();
+  assert.equal(received.messages.length, 2);
+  assert.equal(received.messages.find((m) => m.id === reply).read_at, null);
+  assert.equal(
+    (
+      await (
+        await req("/api/mail", { surface: "public", cookie: otherCookie })
+      ).json()
+    ).messages.length,
+    0,
+  );
+  await req("/api/mail/read", {
+    surface: "public",
+    cookie: otherCookie,
+    method: "POST",
+    body: { ids: [reply] },
+  });
+  assert.equal(
+    (
+      await (
+        await req("/api/mail", { surface: "public", cookie: visitorCookie })
+      ).json()
+    ).messages.find((m) => m.id === reply).read_at,
+    null,
+  );
+  await req("/api/mail/read", {
+    surface: "public",
+    cookie: visitorCookie,
+    method: "POST",
+    body: { ids: [reply] },
+  });
+  assert.ok(
+    (
+      await (
+        await req("/api/mail", { surface: "public", cookie: visitorCookie })
+      ).json()
+    ).messages.find((m) => m.id === reply).read_at,
+  );
+});
+test("mail rejects bots, invalid bodies, anonymous submissions and forged origins; sending is rate limited", async () => {
+  assert.equal(
+    (
+      await req("/api/mail", {
+        surface: "public",
+        cookie: "",
+        method: "POST",
+        body: {},
+      })
+    ).status,
+    401,
+  );
+  const cookie = (
+    await req("/api/mail", { surface: "public", cookie: "" })
+  ).headers
+    .get("set-cookie")
+    .split(";")[0];
+  const send = (body, extra = {}) =>
+    req("/api/mail", {
+      surface: "public",
+      cookie,
+      method: "POST",
+      body: { requestId: crypto.randomUUID(), body, ...extra },
+    });
+  assert.equal((await send("")).status, 400);
+  assert.equal((await send("x".repeat(5001))).status, 400);
+  assert.equal((await send("hi", { website: "spam" })).status, 400);
+  assert.equal(
+    (
+      await req("/api/mail", {
+        surface: "public",
+        cookie,
+        method: "POST",
+        body: { requestId: crypto.randomUUID(), body: "hi" },
+        origin: "https://evil.test",
+      })
+    ).status,
+    403,
+  );
+  for (let i = 0; i < 5; i++)
+    assert.equal((await send("Dear you")).status, 201);
+  assert.equal((await send("Too many")).status, 429);
+  env.DB.sql.exec(
+    "UPDATE state SET published=json_set(published,'$.correspondence.enabled',json('false'))",
+  );
+  assert.equal(
+    (await req("/api/mail", { surface: "public", cookie })).status,
+    404,
+  );
+});

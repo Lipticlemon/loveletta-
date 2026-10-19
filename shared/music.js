@@ -1,3 +1,4 @@
+import { parseLyrics, lyricIndex } from "./lyrics.js";
 const escape = (value) =>
   String(value ?? "").replace(
     /[&<>"']/g,
@@ -55,7 +56,7 @@ export function trackWindow(track, duration = Infinity, legacyStart = 0) {
 }
 export function musicMarkup(music) {
   if (!music.enabled) return "";
-  return `<section class="music-player playlist-player ${music.design === "square" ? "square" : ""}" aria-label="Floating music player"><div class="music-heading"><span class="music-flower" aria-hidden="true">♫</span><div class="music-now"><span id="track-name">Our soundtrack</span><small id="music-status" role="status">A LITTLE MUSIC, JUST FOR US</small></div><button id="playlist-toggle" aria-label="Choose a song" aria-expanded="false" aria-controls="music-playlist">≡</button></div><div id="music-playlist" class="music-playlist" hidden><p class="playlist-label">OUR LITTLE PLAYLIST</p><div id="playlist-tracks"></div></div><div class="music-transport"><button id="music-previous" aria-label="Previous song">‹</button><button id="music-toggle" aria-label="Play music">▶</button><button id="music-next" aria-label="Next song">›</button><label class="music-volume"><span class="sr-only">Music volume</span><span aria-hidden="true">♪</span><input id="music-volume" type="range" min="0" max="1" step="0.01" aria-label="Music volume"></label></div><div class="music-progress"><label class="sr-only" for="music-seek">Seek within the selected song excerpt</label><input id="music-seek" type="range" min="0" max="1" value="0" step="0.1" disabled><div class="music-times"><time id="music-current">0:00</time><span id="music-clip">Choose your song</span><time id="music-end">—</time></div></div><audio id="audio" preload="metadata"></audio></section>`;
+  return `<section class="music-player playlist-player ${music.design === "square" ? "square" : ""}" aria-label="Floating music player"><div class="music-heading"><span class="music-flower" aria-hidden="true">♫</span><div class="music-now"><span id="track-name">Our soundtrack</span><small id="music-status" role="status">A LITTLE MUSIC, JUST FOR US</small></div><button id="lyrics-toggle" aria-label="Show song lyrics" aria-expanded="false" aria-controls="music-lyrics" hidden>✎</button><button id="playlist-toggle" aria-label="Choose a song" aria-expanded="false" aria-controls="music-playlist">≡</button></div><div id="music-playlist" class="music-playlist" hidden><p class="playlist-label">OUR LITTLE PLAYLIST</p><div id="playlist-tracks"></div></div><div id="music-lyrics" class="music-lyrics" aria-label="Song lyrics" hidden></div><div class="music-transport"><button id="music-previous" aria-label="Previous song">‹</button><button id="music-toggle" aria-label="Play music">▶</button><button id="music-next" aria-label="Next song">›</button><label class="music-volume"><span class="sr-only">Music volume</span><span aria-hidden="true">♪</span><input id="music-volume" type="range" min="0" max="1" step="0.01" aria-label="Music volume"></label></div><div class="music-progress"><label class="sr-only" for="music-seek">Seek within the selected song excerpt</label><input id="music-seek" type="range" min="0" max="1" value="0" step="0.1" disabled><div class="music-times"><time id="music-current">0:00</time><span id="music-clip">Choose your song</span><time id="music-end">—</time></div></div><audio id="audio" preload="metadata"></audio></section>`;
 }
 export function mountMusicPlayer(root, music, { preview = false } = {}) {
   const audio = root.querySelector("#audio");
@@ -65,6 +66,39 @@ export function mountMusicPlayer(root, music, { preview = false } = {}) {
     seek = root.querySelector("#music-seek"),
     playlist = root.querySelector("#music-playlist"),
     toggle = root.querySelector("#playlist-toggle");
+  const lyricsPanel = root.querySelector("#music-lyrics"),
+    lyricsToggle = root.querySelector("#lyrics-toggle");
+  let lyrics = parseLyrics(),
+    currentLyric = -1;
+  lyricsToggle.addEventListener("click", () => {
+    lyricsPanel.hidden = !lyricsPanel.hidden;
+    lyricsToggle.setAttribute("aria-expanded", String(!lyricsPanel.hidden));
+    playlist.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+    currentLyric = -2;
+    syncLyrics();
+  });
+  function syncLyrics() {
+    const next = lyricIndex(
+      lyrics,
+      audio.currentTime || 0,
+      tracks[index]?.lyricsOffset || 0,
+    );
+    if (next === currentLyric) return;
+    currentLyric = next;
+    lyricsPanel.querySelectorAll(".lyric-line").forEach((line, i) => {
+      line.classList.toggle("active", i === next);
+      line.setAttribute("aria-current", String(i === next));
+      if (i === next && !lyricsPanel.hidden)
+        lyricsPanel.scrollTop = Math.max(
+          0,
+          line.offsetTop -
+            lyricsPanel.offsetTop -
+            lyricsPanel.clientHeight / 2 +
+            line.clientHeight / 2,
+        );
+    });
+  }
   const tracks = music.tracks.filter((t) => media(t.src));
   let index = Math.max(
       0,
@@ -105,9 +139,16 @@ export function mountMusicPlayer(root, music, { preview = false } = {}) {
   });
   toggle.addEventListener("click", () => {
     playlist.hidden = !playlist.hidden;
+    lyricsPanel.hidden = true;
+    lyricsToggle.setAttribute("aria-expanded", "false");
     toggle.setAttribute("aria-expanded", String(!playlist.hidden));
   });
   const escapeKey = (event) => {
+    if (event.key === "Escape" && !lyricsPanel.hidden) {
+      lyricsPanel.hidden = true;
+      lyricsToggle.setAttribute("aria-expanded", "false");
+      lyricsToggle.focus();
+    }
     if (event.key === "Escape" && !playlist.hidden) {
       playlist.hidden = true;
       toggle.setAttribute("aria-expanded", "false");
@@ -116,6 +157,7 @@ export function mountMusicPlayer(root, music, { preview = false } = {}) {
   };
   root.addEventListener("keydown", escapeKey);
   function refresh() {
+    syncLyrics();
     root.querySelector("#music-current").textContent = formatTime(
       audio.currentTime || window.start,
     );
@@ -181,6 +223,23 @@ export function mountMusicPlayer(root, music, { preview = false } = {}) {
     index = (which + tracks.length) % tracks.length;
     window = trackWindow(tracks[index], Infinity, music.start);
     audio.src = tracks[index].src;
+    lyrics = parseLyrics(tracks[index].lyrics);
+    currentLyric = -2;
+    lyricsToggle.hidden = !tracks[index].lyrics?.trim();
+    if (lyricsToggle.hidden) {
+      lyricsPanel.hidden = true;
+      lyricsToggle.setAttribute("aria-expanded", "false");
+    }
+    lyricsPanel.innerHTML =
+      '<p class="playlist-label">' +
+      (lyrics.timed ? "THE WORDS TO OUR SONG" : "SONG LYRICS") +
+      "</p>" +
+      lyrics.lines
+        .map(
+          (line) =>
+            `<p class="lyric-line">${escape(line.text) || "&nbsp;"}</p>`,
+        )
+        .join("");
     audio.load?.();
     root.querySelector("#track-name").textContent = tracks[index].name;
     status.textContent = "A SOUNDTRACK FOR US";

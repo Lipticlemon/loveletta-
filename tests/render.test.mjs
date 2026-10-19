@@ -26,6 +26,7 @@ function dom() {
 test("envelope opens the complete letter and keyboard-accessible secret notes unfold", async () => {
   const window = dom(),
     c = cloneDefaults();
+  c.correspondence.enabled = false;
   render(c);
   assert.match(document.querySelector("h1").textContent, /written with love/);
   assert.equal(
@@ -48,6 +49,7 @@ test("envelope opens the complete letter and keyboard-accessible secret notes un
 test("layout order, hidden modules, custom typography, and floral colors render from configuration", () => {
   dom();
   const c = cloneDefaults();
+  c.correspondence.enabled = false;
   c.theme.fontSize = 24;
   c.theme.accent = "#bb4477";
   c.sections = [
@@ -76,6 +78,7 @@ test("layout order, hidden modules, custom typography, and floral colors render 
 test("letters and gallery captions escape markup; rich text strips executable attributes", () => {
   dom();
   const c = cloneDefaults();
+  c.correspondence.enabled = false;
   c.welcome.title = "<img src=x onerror=alert(1)>";
   c.letters[0].body =
     '<p onclick="alert(1)">Safe <mark>love</mark><img src=x onerror=alert(1)></p>';
@@ -96,6 +99,7 @@ test("typewriter keeps full text accessible and builds progressive word animatio
   dom();
   globalThis.matchMedia = () => ({ matches: false });
   const c = cloneDefaults();
+  c.correspondence.enabled = false;
   c.writingAnimation = "typewriter";
   render(c, { open: true });
   assert.ok(document.querySelectorAll(".typed-word").length > 100);
@@ -109,6 +113,7 @@ test("typewriter keeps full text accessible and builds progressive word animatio
 test("transparent video background honors reduced motion without fetching a video", () => {
   dom();
   const c = cloneDefaults();
+  c.correspondence.enabled = false;
   c.theme.transparent = true;
   c.theme.video.enabled = true;
   c.theme.video.src = "/media/00000000-0000-0000-0000-000000000001";
@@ -133,6 +138,7 @@ test("video framing, speed, muted playback, and pause controls follow editor set
   };
   window.HTMLElement.prototype.load = function () {};
   const c = cloneDefaults();
+  c.correspondence.enabled = false;
   c.theme.video = {
     ...c.theme.video,
     enabled: true,

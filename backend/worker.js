@@ -146,6 +146,29 @@ async function state(env) {
 async function requireAdmin(req, env) {
   if (!(await session(req, env))) fail("Please sign in to the editor.", 401);
 }
+const mailCookie = "__Host-loveletta-mail";
+async function mailVisitor(req, env) {
+  const token = cookie(req, mailCookie);
+  if (!token) return null;
+  return env.DB.prepare(
+    "SELECT id FROM mail_visitors WHERE token_hash=? AND expires>?",
+  )
+    .bind(await hash(token), Date.now())
+    .first();
+}
+async function mailAccess(req, env) {
+  if (!(await publicAccess(req, env))) fail("Open the garden first.", 423);
+  const c = JSON.parse((await state(env)).published);
+  if (c.settings.maintenance) fail("The garden is resting.", 503);
+  if (c.correspondence?.enabled === false)
+    fail("Letter replies are not available.", 404);
+  return c;
+}
+function letterText(value) {
+  if (typeof value !== "string" || !value.trim() || value.length > 5000)
+    fail("Write a letter between 1 and 5,000 characters.");
+  return value.trim();
+}
 export default {
   async fetch(req, env) {
     try {
@@ -259,6 +282,108 @@ export default {
             503,
           );
         return json({ config: c, publishedAt: s.published_at });
+      }
+      if (surface === "public" && path === "/api/mail" && method === "GET") {
+        await mailAccess(req, env);
+        let visitor = await mailVisitor(req, env),
+          setCookie;
+        if (!visitor) {
+          await limit(req, env, "mail-new", 20);
+          const token = crypto.randomUUID() + crypto.randomUUID();
+          visitor = { id: crypto.randomUUID() };
+          await env.DB.prepare(
+            "INSERT INTO mail_visitors(id,token_hash,created_at,expires) VALUES(?,?,?,?)",
+          )
+            .bind(
+              visitor.id,
+              await hash(token),
+              new Date().toISOString(),
+              Date.now() + 31536000000,
+            )
+            .run();
+          setCookie = `${mailCookie}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=31536000`;
+        }
+        const messages = (
+          await env.DB.prepare(
+            "SELECT id,direction,name,body,created_at,read_at FROM correspondence WHERE visitor_id=? ORDER BY created_at DESC,id DESC LIMIT 200",
+          )
+            .bind(visitor.id)
+            .all()
+        ).results.reverse();
+        return json(
+          { messages },
+          200,
+          setCookie ? { "Set-Cookie": setCookie } : {},
+        );
+      }
+      if (surface === "public" && path === "/api/mail" && method === "POST") {
+        await mailAccess(req, env);
+        const visitor = await mailVisitor(req, env);
+        if (!visitor) fail("Refresh the page before sending your letter.", 401);
+        const b = await data(req);
+        if (b.website) fail("Unable to send this letter.");
+        if (!/^[a-f\d-]{36}$/.test(b.requestId || ""))
+          fail("Invalid letter reference.");
+        const existing = await env.DB.prepare(
+          "SELECT visitor_id,direction FROM correspondence WHERE id=?",
+        )
+          .bind(b.requestId)
+          .first();
+        if (existing) {
+          if (
+            existing.visitor_id !== visitor.id ||
+            existing.direction !== "visitor"
+          )
+            fail("Letter reference is already used.", 409);
+          return json({ ok: true, id: b.requestId });
+        }
+        const text = letterText(b.body);
+        if (
+          b.name !== undefined &&
+          (typeof b.name !== "string" || b.name.length > 80)
+        )
+          fail("Keep your name below 80 characters.");
+        await limit(req, env, "mail-send", 5);
+        const now = new Date().toISOString();
+        await env.DB.prepare(
+          "INSERT INTO correspondence(id,visitor_id,direction,name,body,created_at) VALUES(?,?,'visitor',?,?,?)",
+        )
+          .bind(
+            b.requestId,
+            visitor.id,
+            b.name?.trim() || "A little love letter",
+            text,
+            now,
+          )
+          .run();
+        return json({ ok: true, id: b.requestId }, 201);
+      }
+      if (
+        surface === "public" &&
+        path === "/api/mail/read" &&
+        method === "POST"
+      ) {
+        await mailAccess(req, env);
+        const visitor = await mailVisitor(req, env);
+        if (!visitor) fail("Refresh the page to find your letters.", 401);
+        const b = await data(req);
+        if (
+          !Array.isArray(b.ids) ||
+          b.ids.length > 200 ||
+          b.ids.some(
+            (id) => typeof id !== "string" || !/^[a-f\d-]{36}$/.test(id),
+          )
+        )
+          fail("Invalid letter references.");
+        if (b.ids.length)
+          await env.DB.batch(
+            b.ids.map((id) =>
+              env.DB.prepare(
+                "UPDATE correspondence SET read_at=COALESCE(read_at,?) WHERE id=? AND visitor_id=? AND direction='admin'",
+              ).bind(new Date().toISOString(), id, visitor.id),
+            ),
+          );
+        return json({ ok: true });
       }
       if (path.startsWith("/media/") && ["GET", "HEAD"].includes(method)) {
         const id = path.slice(7);
@@ -375,6 +500,77 @@ export default {
       if (surface !== "editor" || !path.startsWith("/api/admin/"))
         return json({ error: "Not found." }, 404);
       await requireAdmin(req, env);
+      if (path === "/api/admin/inbox" && method === "GET") {
+        const threads = (
+          await env.DB.prepare(
+            "SELECT v.id, (SELECT name FROM correspondence WHERE visitor_id=v.id AND direction='visitor' ORDER BY created_at DESC,id DESC LIMIT 1) AS name, (SELECT body FROM correspondence WHERE visitor_id=v.id ORDER BY created_at DESC,id DESC LIMIT 1) AS preview, MAX(c.created_at) AS updated_at, SUM(CASE WHEN c.direction='visitor' AND c.read_at IS NULL THEN 1 ELSE 0 END) AS unread, COUNT(c.id) AS messages FROM mail_visitors v JOIN correspondence c ON c.visitor_id=v.id GROUP BY v.id ORDER BY updated_at DESC LIMIT 200",
+          ).all()
+        ).results;
+        return json(threads);
+      }
+      const inbox =
+        /^\/api\/admin\/inbox\/([a-f\d-]{36})(?:\/(read|reply))?$/.exec(path);
+      if (inbox) {
+        const visitorId = inbox[1],
+          action = inbox[2];
+        const exists = await env.DB.prepare(
+          "SELECT id FROM correspondence WHERE visitor_id=? AND direction='visitor' LIMIT 1",
+        )
+          .bind(visitorId)
+          .first();
+        if (!exists) fail("Letter conversation not found.", 404);
+        if (!action && method === "GET")
+          return json({
+            messages: (
+              await env.DB.prepare(
+                "SELECT id,direction,name,body,created_at,read_at FROM correspondence WHERE visitor_id=? ORDER BY created_at DESC,id DESC LIMIT 200",
+              )
+                .bind(visitorId)
+                .all()
+            ).results.reverse(),
+          });
+        if (action === "read" && method === "POST") {
+          await env.DB.prepare(
+            "UPDATE correspondence SET read_at=COALESCE(read_at,?) WHERE visitor_id=? AND direction='visitor'",
+          )
+            .bind(new Date().toISOString(), visitorId)
+            .run();
+          return json({ ok: true });
+        }
+        if (action === "reply" && method === "POST") {
+          const b = await data(req),
+            text = letterText(b.body);
+          const id = b.requestId;
+          if (!/^[a-f\d-]{36}$/.test(id || ""))
+            fail("Invalid reply reference.");
+          const existing = await env.DB.prepare(
+            "SELECT visitor_id,direction FROM correspondence WHERE id=?",
+          )
+            .bind(id)
+            .first();
+          if (existing) {
+            if (
+              existing.visitor_id !== visitorId ||
+              existing.direction !== "admin"
+            )
+              fail("Reply reference is already used.", 409);
+            return json({ ok: true, id });
+          }
+          const c = JSON.parse((await state(env)).published);
+          await env.DB.prepare(
+            "INSERT INTO correspondence(id,visitor_id,direction,name,body,created_at) VALUES(?,?,'admin',?,?,?)",
+          )
+            .bind(
+              id,
+              visitorId,
+              String(c.welcome.sender || "With love").slice(0, 80),
+              text,
+              new Date().toISOString(),
+            )
+            .run();
+          return json({ ok: true, id }, 201);
+        }
+      }
       if (path === "/api/admin/state" && method === "GET") {
         const s = await state(env);
         return json({

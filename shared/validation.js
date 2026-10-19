@@ -1,3 +1,13 @@
+export const mailDefaults = {
+  enabled: true,
+  title: "A little letter, in return.",
+  subtitle: "Some words deserve a place on paper.",
+  greeting: "Dear you,",
+  button: "Fold & send my letter",
+  success: "Your letter is on its way, safely sealed with love.",
+  returnTitle: "A letter has found its way to you.",
+  animation: true,
+};
 export const videoDefaults = {
   enabled: false,
   src: "",
@@ -57,6 +67,7 @@ export function validateConfig(input) {
   const c = JSON.parse(serialized);
   if (c.theme && typeof c.theme === "object")
     c.theme.video = { ...videoDefaults, ...c.theme.video };
+  c.correspondence = { ...mailDefaults, ...c.correspondence };
   for (const key of [
     "welcome",
     "theme",
@@ -113,9 +124,11 @@ export function validateConfig(input) {
     "timeline",
     "surprises",
     "quote",
+    "reply",
   ];
   if (
     c.sections.some((s) => !allowedSections.includes(s.type)) ||
+    c.sections.filter((s) => s.type === "reply").length > 1 ||
     new Set(c.sections.map((s) => s.id)).size !== c.sections.length
   )
     throw new Error("Invalid or duplicate section.");
@@ -207,6 +220,31 @@ export function validateConfig(input) {
     number(s, "spacing", 20, 180);
     if (s.background && !/^#[\da-f]{6}$/i.test(s.background))
       throw new Error("Invalid section color.");
+  }
+  for (const key of ["enabled", "animation"])
+    if (typeof c.correspondence[key] !== "boolean")
+      throw new Error("Invalid reply setting.");
+  for (const key of [
+    "title",
+    "subtitle",
+    "greeting",
+    "button",
+    "success",
+    "returnTitle",
+  ])
+    if (
+      typeof c.correspondence[key] !== "string" ||
+      c.correspondence[key].length > 500
+    )
+      throw new Error("Keep reply labels below 500 characters.");
+  for (const track of c.music.tracks) {
+    if (
+      track.lyrics !== undefined &&
+      (typeof track.lyrics !== "string" || track.lyrics.length > 20000)
+    )
+      throw new Error("Keep song lyrics below 20,000 characters.");
+    if (track.lyricsOffset !== undefined)
+      number(track, "lyricsOffset", -300, 300);
   }
   const media = (v) => !v || /^\/media\/[a-f\d-]{36}$/.test(v);
   for (const v of [

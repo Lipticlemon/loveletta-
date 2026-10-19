@@ -11,6 +11,14 @@ await writeFile(
   backend.replace(/export async function /g, "async function "),
 );
 const common = {
+  "/mail.js": {
+    type: "application/javascript;charset=UTF-8",
+    content: await read("shared/mail.js"),
+  },
+  "/lyrics.js": {
+    type: "application/javascript;charset=UTF-8",
+    content: await read("shared/lyrics.js"),
+  },
   "/music.js": {
     type: "application/javascript;charset=UTF-8",
     content: await read("shared/music.js"),

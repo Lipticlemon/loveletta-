@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { parseHTML } from "linkedom";
 import { readFile, writeFile, unlink } from "node:fs/promises";
 import { cloneDefaults } from "../shared/defaults.js";
-test("all twelve editor sections load; controls persist into drafts; publishing uses saved revision", async () => {
+test("all thirteen editor sections load; controls persist into drafts; publishing uses saved revision", async () => {
   const { window } = parseHTML(
     '<html><head></head><body><div id="app"></div><div id="toast"></div></body></html>',
   );
@@ -19,8 +19,31 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
     confirm: () => true,
     prompt: () => null,
   });
+  const threadId = crypto.randomUUID();
   globalThis.fetch = async (path, opts = {}) => {
     requests.push({ path, opts });
+    if (path === "/api/admin/inbox")
+      return Response.json([
+        {
+          id: threadId,
+          name: "Their name",
+          preview: "A little letter",
+          updated_at: new Date().toISOString(),
+          unread: 1,
+        },
+      ]);
+    if (path === "/api/admin/inbox/" + threadId)
+      return Response.json({
+        messages: [
+          {
+            id: crypto.randomUUID(),
+            direction: "visitor",
+            name: "Their name",
+            body: "<img src=x onerror=alert(1)>",
+            created_at: new Date().toISOString(),
+          },
+        ],
+      });
     if (path === "/api/admin/media" && opts.method === "POST") {
       const id = crypto.randomUUID();
       const item = {
@@ -47,7 +70,9 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
               storage: "R2",
               gateEnabled: false,
             }
-          : path === "/api/admin/media" || path === "/api/admin/versions"
+          : path === "/api/admin/media" ||
+              path === "/api/admin/versions" ||
+              path === "/api/admin/inbox"
             ? []
             : path === "/api/admin/draft"
               ? { revision: 2 }
@@ -74,9 +99,10 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
   }
   await new Promise((r) => setTimeout(r, 15));
   assert.ok(document.querySelector(".studio"));
-  assert.equal(document.querySelectorAll(".sidebar .tab").length, 12);
+  assert.equal(document.querySelectorAll(".sidebar .tab").length, 13);
   for (const id of [
     "letters",
+    "inbox",
     "theme",
     "flowers",
     "music",
@@ -93,6 +119,16 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
     assert.ok(document.querySelector("#controls .panel"), id);
     assert.match(document.querySelector("#page-heading").textContent, /./);
   }
+  document.querySelector('.tab[data-tab="inbox"]').click();
+  await new Promise((r) => setTimeout(r, 10));
+  document.querySelector('[data-action="open-thread"]').click();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(document.querySelector(".inbox-note img"), null);
+  document.querySelector("#inbox-reply").value = "My loving reply";
+  document.querySelector('[data-action="send-reply"]').click();
+  await new Promise((r) => setTimeout(r, 10));
+  const sentReply = requests.find((r) => r.path.endsWith("/reply"));
+  assert.equal(JSON.parse(sentReply.opts.body).body, "My loving reply");
   document.querySelector('.tab[data-tab="gallery"]').click();
   const photos = document.querySelector("#gallery-upload");
   assert.ok(photos.hasAttribute("multiple"));
@@ -132,6 +168,9 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
   clipStart.dispatchEvent(new window.Event("input", { bubbles: true }));
   clipEnd.value = "1:30";
   clipEnd.dispatchEvent(new window.Event("input", { bubbles: true }));
+  const lyrics = document.querySelector('[data-path="music.tracks.0.lyrics"]');
+  lyrics.value = "[00:45.00]A little lyric";
+  lyrics.dispatchEvent(new window.Event("input", { bubbles: true }));
   const start = document.querySelector('[data-path="music.start"]');
   start.value = "75.5";
   start.dispatchEvent(new window.Event("input", { bubbles: true }));
@@ -144,6 +183,7 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
   assert.equal(draft.music.tracks.length, 2);
   assert.equal(draft.music.tracks[0].start, 45);
   assert.equal(draft.music.tracks[0].end, 90);
+  assert.equal(draft.music.tracks[0].lyrics, "[00:45.00]A little lyric");
   assert.equal(draft.music.enabled, true);
   assert.equal(draft.theme.transparent, true);
   assert.equal(draft.theme.video.enabled, true);

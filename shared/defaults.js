@@ -1,4 +1,4 @@
-import { videoDefaults } from "./validation.js";
+import { videoDefaults, mailDefaults } from "./validation.js";
 export const defaults = {
   schemaVersion: 1,
   welcome: {
@@ -133,6 +133,7 @@ export const defaults = {
       },
     ],
   },
+  correspondence: { ...mailDefaults },
   sections: [
     {
       id: "letter",
@@ -175,6 +176,17 @@ export const defaults = {
       spacing: 100,
       background: "",
       animation: "bloom",
+      desktop: "wide",
+      mobile: "stack",
+    },
+    {
+      id: "reply",
+      type: "reply",
+      enabled: true,
+      align: "center",
+      spacing: 100,
+      background: "",
+      animation: "rise",
       desktop: "wide",
       mobile: "stack",
     },

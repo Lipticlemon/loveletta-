@@ -59,3 +59,26 @@ Select the opening song and reorder the collection with the arrow buttons. Enabl
 The main site's floating player has play/pause, previous/next, a song chooser, volume, and a seek bar bounded to the selected excerpt. The time labels show positions in the original recording. Playback restarts at the configured start after an excerpt finishes. Existing autoplay restrictions still apply, with a tap-to-play fallback.
 
 Save draft and Publish to update the live playlist. Until songs have been added, the enabled floating player displays a gentle empty state. Music uploads remain authenticated editor actions; visitors select and play the published songs.
+
+## Visitor stationery and your private inbox
+
+The public **A letter, in return** chapter is blank stationery. Visitors can write up to 5,000 characters and optionally add their name. After successful delivery, the paper folds into an envelope and becomes a flying paper plane. Failed sends preserve their writing and can be retried safely without duplicate messages. Reduced motion skips the flight.
+
+Open **Letters & replies** in the private studio. Choose a conversation to read it, type your reply, and choose **Send my reply**. Replies send immediately; no Publish is required for messages. Use **Refresh letters** for new mail. Public visitors receive an arriving envelope on their next visit in the same browser, or within about 45 seconds while the site remains visible. Opening its seal unfolds the conversation and marks delivered replies read. **My letters & replies** opens previous correspondence.
+
+The visitor's private identity is held in a Secure, HttpOnly cookie for one year. Use the same browser and public site URL to receive replies. Clearing cookies, private browsing expiry, changing devices, or expiration loses access to that letter box. There is no public conversation-ID lookup or email delivery. Messages remain in the administrator inbox. Avoid using this as permanent archival storage.
+
+Customize the reply heading, introduction, paper greeting, send button, success message, return heading, and animation toggle in **Letters & replies → The reply stationery**, then Save draft and Publish. The master switch disables visitor correspondence, including return retrieval. **Page layout** can reorder, hide, remove, or add the reply chapter. Use one reply chapter per page. Hiding only that chapter still allows existing returning replies to arrive.
+
+## Lyrics for each song
+
+In **Music**, expand the song's settings and paste lyrics or import a `.txt` or `.lrc` file. Plain lyrics appear as readable text in the floating player's lyrics drawer. LRC lyrics highlight as the song plays:
+
+```text
+[00:45.50]Your first line here
+[01:02.00]Your next line here
+```
+
+Use words you own or have permission to publish. Each song can have up to 20,000 characters. Timestamps refer to the original recording's clock, so a song excerpt beginning at 0:45 uses `[00:45]` for its first timed line. **Lyrics delay in seconds** shifts highlighting: positive values delay it, negative values advance it. Repeated LRC time tags are supported. Save draft and Publish to apply lyrics and timing changes. Lyrics are stored with D1 content; photographs, recordings, and videos continue to use R2.
+
+The on-site conversation view displays the most recent 200 messages. Older messages remain in D1; configuration backups do not export your private inbox.
