@@ -558,7 +558,8 @@ const views = {
     return panel(
       "Our moments",
       "A personal scrapbook, one photograph at a time.",
-      field("Gallery heading", "gallery.title") +
+      `<div class="upload-zone" id="gallery-upload-zone"><strong>Add photos to your love letter.</strong><p>Choose several photos or drop them here. Add captions below, then Publish to show them on your main site.</p><input id="gallery-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple aria-label="Upload photos to the main website"><p>Photos are optimized and saved in your R2 media library.</p></div><p class="upload-progress" id="gallery-upload-progress" role="status"></p><div class="inline-actions">${button("tab", "Choose from media library", 'data-target="media"')}</div>` +
+        field("Gallery heading", "gallery.title") +
         field("Introduction", "gallery.subtitle", "textarea") +
         field("Photo frames", "gallery.style", "select", {
           items: [
@@ -844,6 +845,11 @@ function wireSpecial() {
   });
   const upload = document.querySelector("#upload");
   upload?.addEventListener("change", (e) => uploads([...e.target.files]));
+  document
+    .querySelector("#gallery-upload")
+    ?.addEventListener("change", (e) =>
+      uploads([...e.target.files], { gallery: true }),
+    );
   const zone = document.querySelector(".upload-zone");
   zone?.addEventListener("dragover", (e) => {
     e.preventDefault();
@@ -853,7 +859,9 @@ function wireSpecial() {
   zone?.addEventListener("drop", (e) => {
     e.preventDefault();
     zone.style.background = "";
-    uploads([...e.dataTransfer.files]);
+    uploads([...e.dataTransfer.files], {
+      gallery: zone.id === "gallery-upload-zone",
+    });
   });
   document.querySelector("#restore")?.addEventListener("change", async (e) => {
     try {
@@ -1311,25 +1319,71 @@ async function uploadOne(file, folder) {
     },
   });
 }
-async function uploads(files) {
-  const progress = document.querySelector("#upload-progress"),
-    folder = document.querySelector("#upload-folder")?.value || "General";
+function ensureGallerySection() {
+  const section = config.sections.find((item) => item.type === "gallery");
+  if (section) section.enabled = true;
+  else {
+    const section = cloneDefaults().sections.find(
+      (item) => item.type === "gallery",
+    );
+    config.sections.push({ ...section, id: crypto.randomUUID() });
+  }
+}
+async function uploads(files, { gallery = false } = {}) {
+  if (!files.length) return;
+  if (
+    gallery &&
+    !config.sections.some((item) => item.type === "gallery") &&
+    config.sections.length >= 20
+  ) {
+    toast(
+      "Remove a chapter in Page layout to make room for your photo gallery.",
+    );
+    return;
+  }
+  const progress = document.querySelector(
+      gallery ? "#gallery-upload-progress" : "#upload-progress",
+    ),
+    input = document.querySelector(gallery ? "#gallery-upload" : "#upload"),
+    folder = gallery
+      ? "Memories"
+      : document.querySelector("#upload-folder")?.value || "General";
   const errors = [];
   let complete = 0;
-  document.querySelector("#upload").disabled = true;
+  input.disabled = true;
   for (const file of files) {
     try {
+      if (gallery && !file.type.startsWith("image/"))
+        throw Error("Choose a photo for your gallery.");
+      if (gallery && config.gallery.items.length >= 100)
+        throw Error("Your gallery can hold up to 100 photos.");
       progress.textContent = `Optimizing & uploading ${complete + 1} of ${files.length}: ${file.name}`;
-      await uploadOne(file, folder);
+      const uploaded = await uploadOne(file, folder);
+      if (gallery) {
+        config.gallery.items.push({
+          id: crypto.randomUUID(),
+          src: uploaded.src,
+          caption: file.name.replace(/\.[^.]+$/, ""),
+          date: "",
+        });
+        ensureGallerySection();
+        changed();
+      }
       complete++;
     } catch (e) {
       errors.push(file.name + ": " + e.message);
     }
   }
-  media = await api("/api/admin/media");
-  showTab("media");
+  try {
+    media = await api("/api/admin/media");
+  } catch (error) {
+    errors.push(error.message);
+  } finally {
+    input.disabled = false;
+  }
+  showTab(gallery ? "gallery" : "media");
   toast(
-    `${complete} upload${complete === 1 ? "" : "s"} added to your collection.${errors.length ? " " + errors.join(" ") : ""}`,
+    `${complete} photo${complete === 1 ? "" : "s"}${gallery ? " added to your draft gallery. Publish to show them on your main site." : " / file(s) added to your collection."}${errors.length ? " " + errors.join(" ") : ""}`,
   );
 }
 init();

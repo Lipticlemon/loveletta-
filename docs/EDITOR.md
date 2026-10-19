@@ -12,6 +12,8 @@ Open **Love letters**. Change the welcome headline, recipient, sender, envelope 
 
 ## Add photographs and songs
 
+For the quickest route, open **Photo gallery** and use the photo upload box to select or drop several photos. They are saved to R2 and added directly to your draft gallery. Add captions and dates, then Publish to display them in Our moments on the main site. The gallery chapter is enabled automatically when you upload. You can also choose existing photos from your Media library.
+
 Open **Media library**, choose a folder, and select or drop files. Images are optimized in the browser before uploading into R2. Search by filename or folder. Organize renames a file or moves it to another virtual folder; Replace uploads a new asset and changes its references in the current draft.
 
 Use **Add to gallery** or **Add to music** on an uploaded item, or select the file from the corresponding chapter editor. Gallery memories have captions and dates and can be reordered with arrow buttons. Photographs open in an accessible dialog on the public site.

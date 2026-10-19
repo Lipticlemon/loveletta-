@@ -8,7 +8,9 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
     '<html><head></head><body><div id="app"></div><div id="toast"></div></body></html>',
   );
   const config = cloneDefaults(),
-    requests = [];
+    requests = [],
+    uploadedMedia = [];
+  config.sections.find((item) => item.type === "gallery").enabled = false;
   Object.assign(globalThis, {
     window,
     document: window.document,
@@ -19,6 +21,20 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
   });
   globalThis.fetch = async (path, opts = {}) => {
     requests.push({ path, opts });
+    if (path === "/api/admin/media" && opts.method === "POST") {
+      const id = crypto.randomUUID();
+      const item = {
+        id,
+        src: "/media/" + id,
+        name: "memory.gif",
+        mime: "image/gif",
+        size: 6,
+        folder: "Memories",
+      };
+      uploadedMedia.push(item);
+      return Response.json(item, { status: 201 });
+    }
+    if (path === "/api/admin/media") return Response.json(uploadedMedia);
     const data =
       path === "/api/auth/status"
         ? { authenticated: true }
@@ -73,6 +89,20 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
     assert.ok(document.querySelector("#controls .panel"), id);
     assert.match(document.querySelector("#page-heading").textContent, /./);
   }
+  document.querySelector('.tab[data-tab="gallery"]').click();
+  const photos = document.querySelector("#gallery-upload");
+  assert.ok(photos.hasAttribute("multiple"));
+  photos.files = [
+    new File(["GIF89a"], "Our day.gif", { type: "image/gif" }),
+    new File(["GIF89a"], "Our trip.gif", { type: "image/gif" }),
+  ];
+  photos.dispatchEvent(new window.Event("change", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(document.querySelectorAll(".collection-item").length, 2);
+  assert.match(
+    document.querySelector("#toast").textContent,
+    /Publish to show them/,
+  );
   document.querySelector('.tab[data-tab="music"]').click();
   const start = document.querySelector('[data-path="music.start"]');
   start.value = "75.5";
@@ -81,6 +111,14 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
   await new Promise((r) => setTimeout(r, 10));
   const saved = requests.find((r) => r.path === "/api/admin/draft");
   assert.equal(JSON.parse(saved.opts.body).config.music.start, 75.5);
+  const draft = JSON.parse(saved.opts.body).config;
+  assert.equal(draft.gallery.items.length, 2);
+  assert.equal(draft.gallery.items[0].caption, "Our day");
+  assert.match(draft.gallery.items[0].src, /^\/media\//);
+  assert.equal(
+    draft.sections.find((item) => item.type === "gallery").enabled,
+    true,
+  );
   document.querySelector('[data-action="publish"]').click();
   await new Promise((r) => setTimeout(r, 10));
   const pub = requests.find((r) => r.path === "/api/admin/publish");
