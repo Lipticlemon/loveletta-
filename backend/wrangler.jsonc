@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "loveletta-api",
+  "main": "../dist/api.js",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 },
+  "vars": {
+    "PUBLIC_URL": "https://loveletta.digital-world-9896a4.workers.dev",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "loveletta-content",
+      "database_id": "e23d1e53-d826-4b2f-8370-68a68c1c3021",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "loveletta-media" }],
+}

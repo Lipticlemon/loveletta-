@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "loveletta-studio",
+  "main": "../../dist/editor.js",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 },
+  "services": [{ "binding": "API", "service": "loveletta-api" }],
+}

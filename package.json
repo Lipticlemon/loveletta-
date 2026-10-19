@@ -1,0 +1,22 @@
+{
+  "name": "loveletta",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "deploy:api": "wrangler deploy --config backend/wrangler.jsonc",
+    "deploy:public": "wrangler deploy --config apps/public/wrangler.jsonc",
+    "deploy:editor": "wrangler deploy --config apps/editor/wrangler.jsonc"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "linkedom": "^0.18.13",
+    "prettier": "^3.9.10",
+    "wrangler": "^4.151.1"
+  }
+}

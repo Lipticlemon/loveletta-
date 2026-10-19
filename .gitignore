@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars*
+.env*
+!*.example
+coverage/
+*.local.*
+# Operator-only one-off verification helpers
+scripts/*.local.mjs
