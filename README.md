@@ -16,6 +16,8 @@ The initial content is a complete example love letter. Personalize the recipient
 
 A customizable full-screen flower-field video background is available under Theme & typography. Use transparent page backgrounds with adjustable paper opacity; upload MP4/WebM videos to R2 and configure overlays, blur, playback speed, start time, framing, autoplay, looping, and mobile behavior. A muted pink cosmos-field clip with a matching still image is included in the live configuration. See [asset credits](docs/ASSETS.md).
 
+The floating music player supports a published playlist, previous/next controls, volume, and seeking within an independent start/end excerpt for every song. Upload multiple songs directly from Music in the studio, enter times like `0:45`–`1:30`, and choose whether to loop that excerpt, stop, or continue to the next song.
+
 ## Architecture
 
 ```text

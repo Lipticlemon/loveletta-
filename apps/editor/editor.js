@@ -1,3 +1,4 @@
+import { parseTime, formatTime } from "/music.js";
 import { cloneDefaults } from "/defaults.js";
 import { esc } from "/render.js";
 import {
@@ -149,6 +150,7 @@ function sendPreview() {
 }
 async function save() {
   if (saving) return;
+  syncMusicTimes();
   validateConfig(config);
   saving = true;
   const savedSequence = editSequence;
@@ -270,6 +272,22 @@ function field(label, path, type = "text", options = {}) {
   else
     input = `<input id="${id}" data-path="${path}" type="${type}" value="${esc(value)}" ${options.min !== undefined ? `min="${options.min}"` : ""} ${options.max !== undefined ? `max="${options.max}"` : ""} ${options.step ? `step="${options.step}"` : ""} ${options.placeholder ? `placeholder="${esc(options.placeholder)}"` : ""}>`;
   return `<div class="field"><label for="${id}">${esc(label)}${type === "range" ? `<span class="label-value">${esc(value)}</span>` : ""}</label>${input}${options.hint ? `<small>${esc(options.hint)}</small>` : ""}</div>`;
+}
+function timeField(label, path, value, optional = false) {
+  const id = "time-" + path.replaceAll(".", "-");
+  return `<div class="field"><label for="${id}">${esc(label)}</label><input id="${id}" type="text" data-time-path="${path}" value="${value === null || value === undefined ? "" : formatTime(value, 3)}" placeholder="${optional ? "Leave blank for song end" : "0:00"}" aria-describedby="${id}-hint"><small id="${id}-hint">${optional ? "Optional. Example: 2:30 or 150 seconds." : "Example: 0:45, 1:15.5, or 75.5 seconds."}</small><small class="time-error" role="alert"></small></div>`;
+}
+function syncMusicTimes() {
+  for (const input of document.querySelectorAll("[data-time-path]")) {
+    const parsed = parseTime(input.value),
+      value = input.dataset.timePath.endsWith(".start")
+        ? (parsed ?? 0)
+        : parsed;
+    const keys = input.dataset.timePath.split(".");
+    let target = config;
+    for (const key of keys.slice(0, -1)) target = target[key];
+    target[keys.at(-1)] = value;
+  }
 }
 function toggle(label, path, hint = "") {
   const id = "f-" + path.replaceAll(".", "-");
@@ -579,13 +597,14 @@ const views = {
     return (
       panel(
         "A soundtrack for two",
-        "Upload songs in Media library, then add them here.",
-        toggle("Enable music player", "music.enabled") +
+        "Upload several songs and give each one its own start and end times. Visitors can choose from the floating playlist.",
+        toggle("Enable floating music player", "music.enabled") +
+          `<div class="upload-zone" id="music-upload-zone"><strong>A playlist for your love story.</strong><p>Upload one or several songs. Each can play only the part you choose.</p><input id="music-upload" type="file" accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav,audio/x-wav" multiple aria-label="Upload songs to your playlist"></div><p class="upload-progress" id="music-upload-progress" role="status"></p>` +
           `<div class="field"><label for="active-song">Opening song</label><select id="active-song" data-path="music.active" class="plain-input"><option value="">First song in collection</option>${config.music.tracks.map((t) => `<option value="${esc(t.id)}" ${t.id === config.music.active ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select></div>` +
           config.music.tracks
             .map(
               (t, i) =>
-                `<div class="collection-item"><div class="item-heading"><strong>SONG ${i + 1}</strong><button data-remove="music.tracks" data-index="${i}">Remove</button></div>${field("Display name", `music.tracks.${i}.name`)}${picker("Audio file", `music.tracks.${i}.src`, "audio")}${t.src ? `<audio controls preload="metadata" src="${esc(t.src)}"></audio>` : ""}</div>`,
+                `<div class="collection-item"><div class="item-heading"><strong>SONG ${i + 1}</strong><button data-remove="music.tracks" data-index="${i}">Remove</button></div>${field("Display name", `music.tracks.${i}.name`)}${picker("Audio file", `music.tracks.${i}.src`, "audio")}${row(timeField("Start playing at", `music.tracks.${i}.start`, t.start ?? config.music.start), timeField("Stop playing at", `music.tracks.${i}.end`, t.end ?? null, true))}<div class="inline-actions">${button("move-item", "↑", `data-array="music.tracks" data-index="${i}" data-step="-1"`)}${button("move-item", "↓", `data-array="music.tracks" data-index="${i}" data-step="1"`)}</div>${t.src ? `<audio controls preload="metadata" src="${esc(t.src)}"></audio>` : ""}</div>`,
             )
             .join("") +
           button("add-song", "+ Add song"),
@@ -593,18 +612,27 @@ const views = {
       panel(
         "Playback settings",
         "Browsers may require a tap before playing audio.",
-        field("Starting timestamp, seconds", "music.start", "number", {
+        field("Default start for new songs, seconds", "music.start", "number", {
           min: 0,
           max: 86400,
           step: 0.1,
-          hint: "Example: 75.5 begins at 1 minute, 15.5 seconds. The playhead starts here when the song loads.",
+          hint: "Each song has its own start and end fields above. This default is used when you add a new song.",
         }) +
           field("Volume", "music.volume", "range", {
             min: 0,
             max: 1,
             step: 0.01,
           }) +
-          toggle("Loop the song", "music.loop") +
+          toggle(
+            "Loop the selected excerpt",
+            "music.loop",
+            "Repeat the chosen start–end range.",
+          ) +
+          toggle(
+            "Continue with the next song",
+            "music.autoAdvance",
+            "When looping is off, play the next song after the selected excerpt.",
+          ) +
           field("Start music", "music.mode", "select", {
             items: [
               ["interaction", "When the envelope opens"],
@@ -933,6 +961,68 @@ function wireSpecial() {
         event.target.disabled = false;
       }
     });
+  document
+    .querySelector("#music-upload")
+    ?.addEventListener("change", async (event) => {
+      const input = event.target;
+      const files = [...input.files];
+      if (!files.length) return;
+      input.disabled = true;
+      const progress = document.querySelector("#music-upload-progress"),
+        errors = [];
+      let count = 0;
+      for (const file of files) {
+        try {
+          if (!file.type.startsWith("audio/"))
+            throw Error("Choose an audio file.");
+          if (config.music.tracks.length >= 100)
+            throw Error("Keep your playlist below 100 songs.");
+          progress.textContent = "Uploading " + file.name + "…";
+          const uploaded = await uploadOne(file, "Music");
+          config.music.tracks.push({
+            id: crypto.randomUUID(),
+            name: file.name.replace(/\.[^.]+$/, ""),
+            src: uploaded.src,
+            start: config.music.start || 0,
+            end: null,
+          });
+          config.music.enabled = true;
+          changed();
+          count++;
+        } catch (error) {
+          errors.push(file.name + ": " + error.message);
+        }
+      }
+      try {
+        media = await api("/api/admin/media");
+      } catch (error) {
+        errors.push(error.message);
+      }
+      input.disabled = false;
+      showTab("music");
+      toast(
+        count +
+          " song(s) added. Set each start and end time, then Publish." +
+          (errors.length ? " " + errors.join(" ") : ""),
+      );
+    });
+  document.querySelectorAll("[data-time-path]").forEach((input) =>
+    input.addEventListener("input", () => {
+      try {
+        const seconds = parseTime(input.value);
+        set(
+          input.dataset.timePath,
+          input.dataset.timePath.endsWith(".start") ? (seconds ?? 0) : seconds,
+        );
+        input.removeAttribute("aria-invalid");
+        input.closest(".field").querySelector(".time-error").textContent = "";
+      } catch (error) {
+        input.setAttribute("aria-invalid", "true");
+        input.closest(".field").querySelector(".time-error").textContent =
+          error.message;
+      }
+    }),
+  );
   const upload = document.querySelector("#upload");
   upload?.addEventListener("change", (e) => uploads([...e.target.files]));
   document
@@ -940,7 +1030,9 @@ function wireSpecial() {
     ?.addEventListener("change", (e) =>
       uploads([...e.target.files], { gallery: true }),
     );
-  const zone = document.querySelector(".upload-zone:not(#video-upload-zone)");
+  const zone = document.querySelector(
+    ".upload-zone:not(#video-upload-zone):not(#music-upload-zone)",
+  );
   zone?.addEventListener("dragover", (e) => {
     e.preventDefault();
     zone.style.background = "#f2dfe6";
@@ -1157,6 +1249,8 @@ document.addEventListener("click", async (event) => {
         id: crypto.randomUUID(),
         name: "Our song",
         src: "",
+        start: config.music.start || 0,
+        end: null,
       });
     if (action === "add-photo")
       config.gallery.items.push({
@@ -1221,6 +1315,8 @@ document.addEventListener("click", async (event) => {
         id: crypto.randomUUID(),
         src: "/media/" + m.id,
         name: m.name.replace(/\.[^.]+$/, ""),
+        start: config.music.start || 0,
+        end: null,
       });
       config.music.enabled = true;
       toast("Added to your music collection.");

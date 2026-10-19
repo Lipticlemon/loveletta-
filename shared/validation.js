@@ -165,6 +165,21 @@ export function validateConfig(input) {
   number(c.gallery, "interval", 2, 60);
   number(c.music, "volume", 0, 1);
   number(c.music, "start", 0, 86400);
+  for (const track of c.music.tracks) {
+    if (track.start === undefined) track.start = c.music.start;
+    if (track.end === undefined || track.end === "") track.end = null;
+    number(track, "start", 0, 86400);
+    if (track.end !== null) {
+      number(track, "end", 0, 86400);
+      if (track.end <= track.start)
+        throw new Error("A song's end time must be after its start time.");
+    }
+  }
+  if (
+    c.music.autoAdvance !== undefined &&
+    typeof c.music.autoAdvance !== "boolean"
+  )
+    throw new Error("Invalid playlist option.");
   const video = c.theme.video;
   for (const [key, min, max] of [
     ["start", 0, 86400],

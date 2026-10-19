@@ -49,3 +49,13 @@ Under **Theme & typography → Flower-field video background**, enable a transpa
 Customize video visibility, the soft palette-colored overlay, blur, playback speed, starting timestamp, looping, autoplay, sizing, framing, mobile playback, and translucent letter/photo paper. Choose a poster image for loading, reduced motion, unavailable videos, and data-saving modes. Video sound is always muted, keeping your chosen music independent. Visitors have a pause/play background control.
 
 The supplied pink cosmos footage is a 16-second, 720p H.264 loop with a matching still image. Its source and license are documented in ASSETS.md. Full-screen video is streamed from R2 using byte ranges. Disable or replace it at any time; replacing the current background leaves earlier publications' media available for rollback.
+
+## Floating playlist and song excerpts
+
+Open **Music** and upload one or several audio files directly into your playlist, or add songs already in the Media library. Each song has an independent **Start playing at** and **Stop playing at** field. Enter `0:45` and `1:30` to play only that excerpt, for example. Seconds (`45`), minutes and seconds (`1:15.5`), or hours (`1:02:03`) are accepted. Leave Stop playing at blank to use the natural ending. The end must be after the start; an end beyond the actual duration stops at the song's natural ending. A start beyond the recording's duration displays a player error instead of playing from the wrong position.
+
+Select the opening song and reorder the collection with the arrow buttons. Enable **Loop the selected excerpt** to repeat just the chosen range. With looping off, **Continue with the next song** optionally advances through the playlist; otherwise the player stops at the selected end. The default starting-time field applies when adding new songs and supports older configurations.
+
+The main site's floating player has play/pause, previous/next, a song chooser, volume, and a seek bar bounded to the selected excerpt. The time labels show positions in the original recording. Playback restarts at the configured start after an excerpt finishes. Existing autoplay restrictions still apply, with a tap-to-play fallback.
+
+Save draft and Publish to update the live playlist. Until songs have been added, the enabled floating player displays a gentle empty state. Music uploads remain authenticated editor actions; visitors select and play the published songs.

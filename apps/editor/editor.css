@@ -1119,3 +1119,9 @@ audio {
   object-fit: cover;
   background: #eee3e5;
 }
+.field input[aria-invalid="true"] {
+  border-color: #b2375a;
+}
+.field .time-error {
+  color: #b2375a;
+}

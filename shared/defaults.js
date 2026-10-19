@@ -72,6 +72,7 @@ export const defaults = {
     start: 0,
     loop: true,
     mode: "interaction",
+    autoAdvance: false,
     design: "pill",
   },
   gallery: {

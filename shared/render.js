@@ -1,3 +1,4 @@
+import { musicMarkup, mountMusicPlayer } from "./music.js";
 import { sanitizeRichText, videoDefaults } from "./validation.js";
 export const esc = (v) =>
   String(v ?? "").replace(
@@ -75,7 +76,7 @@ export function render(config, { preview = false, open = false } = {}) {
     )
     .join("");
   document.querySelector("#app").innerHTML =
-    `${preview ? '<div class="preview-banner">UNPUBLISHED PREVIEW · ONLY VISIBLE TO YOU</div>' : ""}<header class="masthead"><a class="brand" href="#">LoveLetta<i aria-hidden="true">❧</i></a><nav class="nav" aria-label="Chapters">${nav}</nav><span class="mast-note">a little love, in every word</span></header><main id="main"><section class="welcome"><img class="floral" src="/floral.svg" alt="" fetchpriority="high"><img class="floral right" src="/floral.svg" alt=""><div class="welcome-inner rise-text"><p class="eyebrow">${esc(c.welcome.eyebrow)}</p><h1>${title}</h1><p class="welcome-subtitle">${esc(c.welcome.subtitle)}</p><div class="envelope-area"><button class="envelope" aria-label="${esc(c.welcome.button)}"><span class="envelope-paper">For ${esc(c.welcome.recipient)}</span><span class="envelope-flap"></span><span class="wax" aria-hidden="true">L</span></button></div><button class="open-label">${esc(c.welcome.button)}<span aria-hidden="true">↗</span></button><p class="small-note">${esc(c.welcome.note)}</p></div><div class="intro-foot">A LETTER TO KEEP. A LOVE TO REMEMBER.</div></section><div class="letter-journey">${enabled.map((s, i) => section(s, i + 1)).join("")}<footer class="closing"><span class="tiny-flower" aria-hidden="true">❧</span><p>${esc(c.settings.footer)}</p><small>WITH LOVE, ${esc(c.welcome.sender).toUpperCase()}</small></footer></div></main>${c.music.enabled && c.music.tracks.length ? '<div class="music-player ' + (c.music.design === "square" ? "square" : "") + '"><button id="music-toggle" aria-label="Play music">▶</button><div><span id="track-name"></span><small id="music-status">A SOUNDTRACK FOR US</small></div><audio id="audio" preload="metadata"></audio></div>' : ""}<dialog class="dialog" id="photo-dialog"><button aria-label="Close photograph">×</button><img alt=""><p></p></dialog>`;
+    `${preview ? '<div class="preview-banner">UNPUBLISHED PREVIEW · ONLY VISIBLE TO YOU</div>' : ""}<header class="masthead"><a class="brand" href="#">LoveLetta<i aria-hidden="true">❧</i></a><nav class="nav" aria-label="Chapters">${nav}</nav><span class="mast-note">a little love, in every word</span></header><main id="main"><section class="welcome"><img class="floral" src="/floral.svg" alt="" fetchpriority="high"><img class="floral right" src="/floral.svg" alt=""><div class="welcome-inner rise-text"><p class="eyebrow">${esc(c.welcome.eyebrow)}</p><h1>${title}</h1><p class="welcome-subtitle">${esc(c.welcome.subtitle)}</p><div class="envelope-area"><button class="envelope" aria-label="${esc(c.welcome.button)}"><span class="envelope-paper">For ${esc(c.welcome.recipient)}</span><span class="envelope-flap"></span><span class="wax" aria-hidden="true">L</span></button></div><button class="open-label">${esc(c.welcome.button)}<span aria-hidden="true">↗</span></button><p class="small-note">${esc(c.welcome.note)}</p></div><div class="intro-foot">A LETTER TO KEEP. A LOVE TO REMEMBER.</div></section><div class="letter-journey">${enabled.map((s, i) => section(s, i + 1)).join("")}<footer class="closing"><span class="tiny-flower" aria-hidden="true">❧</span><p>${esc(c.settings.footer)}</p><small>WITH LOVE, ${esc(c.welcome.sender).toUpperCase()}</small></footer></div></main>${musicMarkup(c.music)}<dialog class="dialog" id="photo-dialog"><button aria-label="Close photograph">×</button><img alt=""><p></p></dialog>`;
   let backgroundCleanup = () => {};
   if (v.enabled && asset(v.src)) {
     const layer = document.createElement("div");
@@ -320,50 +321,11 @@ export function render(config, { preview = false, open = false } = {}) {
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();
   });
-  const audio = document.querySelector("#audio"),
-    musicButton = document.querySelector("#music-toggle");
-  if (audio) {
-    const track =
-      c.music.tracks.find((x) => x.id === c.music.active) || c.music.tracks[0];
-    audio.src = asset(track.src);
-    audio.loop = c.music.loop;
-    audio.volume = c.music.volume;
-    document.querySelector("#track-name").textContent = track.name;
-    audio.addEventListener("loadedmetadata", () => {
-      if (c.music.start < audio.duration) audio.currentTime = c.music.start;
-      else
-        document.querySelector("#music-status").textContent =
-          "START TIME EXCEEDS SONG LENGTH";
-    });
-    audio.addEventListener("play", () => {
-      musicButton.textContent = "Ⅱ";
-      musicButton.setAttribute("aria-label", "Pause music");
-      document.querySelector("#music-status").textContent =
-        "PLAYING, JUST FOR YOU";
-    });
-    audio.addEventListener("pause", () => {
-      musicButton.textContent = "▶";
-      musicButton.setAttribute("aria-label", "Play music");
-    });
-    audio.addEventListener(
-      "error",
-      () =>
-        (document.querySelector("#music-status").textContent =
-          "SONG UNAVAILABLE"),
-    );
-    musicButton.addEventListener("click", () =>
-      audio.paused ? play() : audio.pause(),
-    );
-    if (c.music.mode === "entry" && !preview) play();
-  }
+  const soundtrack = mountMusicPlayer(document.querySelector("#app"), c.music, {
+    preview,
+  });
   async function play() {
-    if (!audio) return;
-    try {
-      await audio.play();
-    } catch {
-      document.querySelector("#music-status").textContent =
-        "TAP PLAY FOR A LITTLE MUSIC";
-    }
+    await soundtrack.play();
   }
   const petals = document.querySelector("#petals");
   if (petals) {
@@ -443,7 +405,7 @@ export function render(config, { preview = false, open = false } = {}) {
     if (pointerFrame) cancelAnimationFrame(pointerFrame);
     intervals.forEach(clearInterval);
     observer.disconnect();
-    if (audio) audio.pause();
+    soundtrack.destroy();
   };
   function noteFront(n) {
     return `<span class="heart" aria-hidden="true">${e.hearts ? "♡" : "❧"}</span><strong>${esc(n.label)}</strong><small>TAP TO UNFOLD</small>`;

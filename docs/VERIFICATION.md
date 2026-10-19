@@ -51,3 +51,7 @@ A supported browser-preview capability was unavailable in this environment. No s
 The expanded automated suite passes 20 checks. Added coverage includes MP4 upload validation, publication-aware video access, streamed R2 byte ranges, legacy configuration defaults, safe video configuration, transparent page rendering, reduced-motion poster fallback, muted/inline playback, framing, speed, pause/play controls, direct editor video uploads, and overlay settings saved into drafts.
 
 A 16-second 1280 × 720 pink cosmos clip and matching poster were uploaded to R2. Only background-video/transparency settings were applied to the current draft and publication; existing letter and gallery content were retained. The new publication is recorded in history. Real-browser visual/device verification remains unavailable, as documented above.
+
+## Floating playlist update — 19 October 2026
+
+The expanded suite passes 30 automated checks. The actual playlist controller runs against a DOM/audio-event adapter to verify start seeking, custom-end stopping, an end timer independent of timeupdate, looping only the configured excerpt, per-song playlist switching, optional advancement, bounded seek controls, volume, and a visible empty state. Timestamp parsing, legacy start fallback, duration clamping, and reversed ranges are covered. The editor test uploads two songs and saves independent 0:45–1:30 timing settings. These are executed controller/DOM checks; real-browser audio playback and autoplay policy testing remain outside this environment's available capabilities.

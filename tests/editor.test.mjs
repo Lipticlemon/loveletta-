@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseHTML } from "linkedom";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, unlink } from "node:fs/promises";
 import { cloneDefaults } from "../shared/defaults.js";
 test("all twelve editor sections load; controls persist into drafts; publishing uses saved revision", async () => {
   const { window } = parseHTML(
@@ -60,14 +60,18 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
     new URL("../apps/editor/editor.js", import.meta.url),
     "utf8",
   );
-  for (const name of ["defaults", "render", "validation"])
+  for (const name of ["defaults", "render", "validation", "music"])
     source = source.replace(
       new RegExp(`(['\"])/${name}\\.js\\1`, "g"),
       JSON.stringify(new URL(`../shared/${name}.js`, import.meta.url).href),
     );
-  await import(
-    "data:text/javascript;base64," + Buffer.from(source).toString("base64")
-  );
+  const fixture = new URL("./editor-runtime.local.mjs", import.meta.url);
+  await writeFile(fixture, source);
+  try {
+    await import(fixture.href);
+  } finally {
+    await unlink(fixture);
+  }
   await new Promise((r) => setTimeout(r, 15));
   assert.ok(document.querySelector(".studio"));
   assert.equal(document.querySelectorAll(".sidebar .tab").length, 12);
@@ -113,6 +117,21 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
   overlay.value = "0.35";
   overlay.dispatchEvent(new window.Event("input", { bubbles: true }));
   document.querySelector('.tab[data-tab="music"]').click();
+  const songUpload = document.querySelector("#music-upload");
+  songUpload.files = [
+    new File(["ID3"], "Our song.mp3", { type: "audio/mpeg" }),
+    new File(["ID3"], "Another song.mp3", { type: "audio/mpeg" }),
+  ];
+  songUpload.dispatchEvent(new window.Event("change", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 20));
+  const clipStart = document.querySelector(
+      '[data-time-path="music.tracks.0.start"]',
+    ),
+    clipEnd = document.querySelector('[data-time-path="music.tracks.0.end"]');
+  clipStart.value = "0:45";
+  clipStart.dispatchEvent(new window.Event("input", { bubbles: true }));
+  clipEnd.value = "1:30";
+  clipEnd.dispatchEvent(new window.Event("input", { bubbles: true }));
   const start = document.querySelector('[data-path="music.start"]');
   start.value = "75.5";
   start.dispatchEvent(new window.Event("input", { bubbles: true }));
@@ -122,6 +141,10 @@ test("all twelve editor sections load; controls persist into drafts; publishing 
   assert.equal(JSON.parse(saved.opts.body).config.music.start, 75.5);
   const draft = JSON.parse(saved.opts.body).config;
   assert.equal(draft.gallery.items.length, 2);
+  assert.equal(draft.music.tracks.length, 2);
+  assert.equal(draft.music.tracks[0].start, 45);
+  assert.equal(draft.music.tracks[0].end, 90);
+  assert.equal(draft.music.enabled, true);
   assert.equal(draft.theme.transparent, true);
   assert.equal(draft.theme.video.enabled, true);
   assert.equal(draft.theme.video.overlay, 0.35);
